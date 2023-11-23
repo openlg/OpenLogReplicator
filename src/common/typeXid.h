@@ -1,5 +1,5 @@
-/* Header for type typeXid
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of type typeXid
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,7 +28,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define TYPE_XID_H_
 
 namespace OpenLogReplicator {
-    class typeXid {
+    class typeXid final {
         uint64_t data;
     public:
         typeXid() : data(0) {
@@ -38,7 +38,7 @@ namespace OpenLogReplicator {
         }
 
         typeXid(typeUsn usn, typeSlt slt, typeSqn sqn) {
-            data = (((uint64_t)usn) << 48) | (((uint64_t)slt) << 32) | ((uint64_t)sqn);
+            data = (static_cast<uint64_t>(usn) << 48) | (static_cast<uint64_t>(slt) << 32) | static_cast<uint64_t>(sqn);
         }
 
         typeXid(const char* str) {
@@ -51,7 +51,7 @@ namespace OpenLogReplicator {
             if (length == 16) {
                 for (uint64_t i = 0; i < 16; ++i)
                     if (!iswxdigit(str[i]))
-                        throw DataException(std::string("bad XID value: ") + str);
+                        throw DataException(20002, "bad XID value: " + std::string(str));
                 usn.assign(str, 4);
                 slt.assign(str + 4, 4);
                 sqn.assign(str + 8, 8);
@@ -59,9 +59,9 @@ namespace OpenLogReplicator {
             } else if (length == 17) {
                 for (uint64_t i = 0; i < 17; ++i)
                     if (!iswxdigit(str[i]) && i != 4 && i != 8)
-                        throw DataException(std::string("bad XID value: ") + str);
+                        throw DataException(20002, "bad XID value: " + std::string(str));
                 if (str[4] != '.' || str[8] != '.')
-                    throw DataException(std::string("bad XID value: ") + str);
+                    throw DataException(20002, "bad XID value: " + std::string(str));
                 usn.assign(str, 4);
                 slt.assign(str + 5, 3);
                 sqn.assign(str + 9, 8);
@@ -69,9 +69,9 @@ namespace OpenLogReplicator {
             } else if (length == 18) {
                 for (uint64_t i = 0; i < 18; ++i)
                     if (!iswxdigit(str[i]) && i != 4 && i != 9)
-                        throw DataException(std::string("bad XID value: ") + str);
+                        throw DataException(20002, "bad XID value: " + std::string(str));
                 if (str[4] != '.' || str[9] != '.')
-                    throw DataException(std::string("bad XID value: ") + str);
+                    throw DataException(20002, "bad XID value: " + std::string(str));
                 usn.assign(str, 4);
                 slt.assign(str + 5, 4);
                 sqn.assign(str + 10, 8);
@@ -79,9 +79,9 @@ namespace OpenLogReplicator {
             } else if (length == 19) {
                 for (uint64_t i = 2; i < 19; ++i)
                     if (!iswxdigit(str[i]) && i != 6 && i != 10)
-                        throw DataException(std::string("bad XID value: ") + str);
+                        throw DataException(20002, "bad XID value: " + std::string(str));
                 if (str[0] != '0' || str[1] != 'x' || str[6] != '.' || str[10] != '.')
-                    throw DataException(std::string("bad XID value: ") + str);
+                    throw DataException(20002, "bad XID value: " + std::string(str));
                 usn.assign(str + 2, 4);
                 slt.assign(str + 7, 3);
                 sqn.assign(str + 11, 8);
@@ -89,33 +89,38 @@ namespace OpenLogReplicator {
             } else if (length == 20) {
                 for (uint64_t i = 2; i < 20; ++i)
                     if (!iswxdigit(str[i]) && i != 6 && i != 11)
-                        throw DataException(std::string("bad XID value: ") + str);
+                        throw DataException(20002, "bad XID value: " + std::string(str));
                 if (str[0] != '0' || str[1] != 'x' || str[6] != '.' || str[11] != '.')
-                    throw DataException(std::string("bad XID value: ") + str);
+                    throw DataException(20002, "bad XID value: " + std::string(str));
                 usn.assign(str + 2, 4);
                 slt.assign(str + 7, 4);
                 sqn.assign(str + 12, 8);
             } else
-                throw DataException(std::string("bad XID value: ") + str);
+                throw DataException(20002, "bad XID value: " + std::string(str));
 
-            data = (((uint64_t)stoul(usn, nullptr, 16)) << 48) | (((uint64_t)stoul(slt, nullptr, 16)) << 32) |
-                    ((uint64_t)stoul(sqn, nullptr, 16));
+            data = (static_cast<uint64_t>(stoul(usn, nullptr, 16)) << 48) |
+                    (static_cast<uint64_t>(stoul(slt, nullptr, 16)) << 32) |
+                    static_cast<uint64_t>(stoul(sqn, nullptr, 16));
         }
 
         uint64_t getData() const {
             return data;
         }
 
+        bool isEmpty() {
+            return (data == 0);
+        }
+
         typeUsn usn() const {
-            return (typeUsn)(data >> 48);
+            return static_cast<typeUsn>(data >> 48);
         }
 
         typeSlt slt() const {
-            return (typeSlt)((data >> 32) & 0xFFFF);
+            return static_cast<typeSlt>((data >> 32) & 0xFFFF);
         }
 
         typeSqn sqn() const {
-            return (typeSqn)(data & 0xFFFFFFFF);
+            return static_cast<typeSqn>(data & 0xFFFFFFFF);
         }
 
         bool operator!=(const typeXid& other) const {
@@ -139,17 +144,11 @@ namespace OpenLogReplicator {
             return data;
         }
 
-        std::string toString() {
+        std::string toString() const {
             std::ostringstream ss;
             ss << "0x" << std::setfill('0') << std::setw(4) << std::hex << (data >> 48) << "." << std::setw(3) <<
-                    (uint64_t)((data >> 32) & 0xFFFF) << "." << std::setw(8) << (data & 0xFFFFFFFF);
+                    ((data >> 32) & 0xFFFF) << "." << std::setw(8) << (data & 0xFFFFFFFF);
             return ss.str();
-        }
-
-        friend std::ostream& operator<<(std::ostream& os, const typeXid& xid) {
-            os << "0x" << std::setfill('0') << std::setw(4) << std::hex << (xid.data >> 48) << "." << std::setw(3) <<
-                    (uint64_t)((xid.data >> 32) & 0xFFFF) << "." << std::setw(8) << (xid.data & 0xFFFFFFFF);
-            return os;
         }
     };
 }

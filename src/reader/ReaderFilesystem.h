@@ -1,5 +1,5 @@
 /* Header for ReaderFilesystem class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,7 +23,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define READER_FILESYSTEM_H_
 
 namespace OpenLogReplicator {
-    class ReaderFilesystem : public Reader {
+    class ReaderFilesystem final : public Reader {
     protected:
         int fileDes;
         int flags;
@@ -32,7 +32,7 @@ namespace OpenLogReplicator {
         int64_t redoRead(uint8_t* buf, uint64_t offset, uint64_t size) override;
 
     public:
-        ReaderFilesystem(Ctx* newCtx, const std::string newAlias, const std::string& newDatabase, int64_t newGroup, bool newConfiguredBlockSum);
+        ReaderFilesystem(Ctx* newCtx, const std::string& newAlias, const std::string& newDatabase, int64_t newGroup, bool newConfiguredBlockSum);
         ~ReaderFilesystem() override;
     };
 }

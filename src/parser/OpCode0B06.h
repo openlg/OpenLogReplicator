@@ -1,5 +1,5 @@
 /* Header for OpCode0B06 class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,7 +23,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define OP_CODE_0B_06_H_
 
 namespace OpenLogReplicator {
-    class OpCode0B06: public OpCode {
+    class OpCode0B06 final : public OpCode {
     public:
         static void process(Ctx* ctx, RedoLogRecord* redoLogRecord);
     };

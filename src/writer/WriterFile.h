@@ -1,5 +1,5 @@
 /* Header for WriterFile class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -29,20 +29,20 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define WRITER_FILE_MODE_SEQUENCE           4
 
 namespace OpenLogReplicator {
-    class WriterFile : public Writer {
+    class WriterFile final : public Writer {
     protected:
         size_t prefixPos;
         size_t suffixPos;
         uint64_t mode;
         uint64_t fill;
         std::string output;
-        std::string outputPath;
-        std::string outputFile;
-        std::string outputFileMask;
-        std::string format;
-        uint64_t outputFileNum;
-        uint64_t outputSize;
-        uint64_t maxSize;
+        std::string pathName;
+        std::string fullFileName;
+        std::string fileNameMask;
+        std::string timestampFormat;
+        uint64_t fileNameNum;
+        uint64_t fileSize;
+        uint64_t maxFileSize;
         int outputDes;
         uint64_t newLine;
         uint64_t append;
@@ -56,8 +56,8 @@ namespace OpenLogReplicator {
         void pollQueue() override;
 
     public:
-        WriterFile(Ctx* newCtx, const std::string newAlias, const std::string& newDatabase, Builder* newBuilder, Metadata* newMetadata, const char* newOutput,
-                   const char* newFormat, uint64_t newMaxSize, uint64_t newNewLine, uint64_t newAppend);
+        WriterFile(Ctx* newCtx, const std::string& newAlias, const std::string& newDatabase, Builder* newBuilder, Metadata* newMetadata, const char* newOutput,
+                   const char* newTimestampFormat, uint64_t newMaxFileSize, uint64_t newNewLine, uint64_t newAppend);
         ~WriterFile() override;
 
         void initialize() override;

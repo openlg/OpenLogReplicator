@@ -1,5 +1,5 @@
 /* Thread reading Oracle Redo Logs using batch mode
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -24,7 +24,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 
 namespace OpenLogReplicator {
     ReplicatorBatch::ReplicatorBatch(Ctx* newCtx, void (*newArchGetLog)(Replicator* replicator), Builder* newBuilder, Metadata* newMetadata,
-                                     TransactionBuffer* newTransactionBuffer, std::string newAlias, const char* newDatabase) :
+                                     TransactionBuffer* newTransactionBuffer, const std::string& newAlias, const char* newDatabase) :
             Replicator(newCtx, newArchGetLog, newBuilder, newMetadata, newTransactionBuffer, newAlias, newDatabase) {
     }
 
@@ -42,12 +42,15 @@ namespace OpenLogReplicator {
         if (FLAG(REDO_FLAGS_SCHEMALESS))
             return;
 
-        ERROR("HINT: if you don't have earlier schema, try with schema-less mode ('flags': 2)")
-        if (metadata->schema->scn != ZERO_SCN) {
-            ERROR("HINT: you can also set start SCN for writer: 'start-scn': " << std::dec << metadata->schema->scn)
-        }
+        ctx->hint("if you don't have earlier schema, try with schemaless mode ('flags': 2)");
+        if (metadata->schema->scn != ZERO_SCN)
+            ctx->hint("you can also set start SCN for writer: 'start-scn': " + std::to_string(metadata->schema->scn));
 
-        throw RuntimeException("schema file missing");
+        throw RuntimeException(10052, "schema file missing");
+    }
+
+    void ReplicatorBatch::updateOnlineRedoLogData() {
+        // No need to update online redo log data in batch mode
     }
 
     const char* ReplicatorBatch::getModeName() const {
@@ -55,7 +58,7 @@ namespace OpenLogReplicator {
     }
 
     bool ReplicatorBatch::continueWithOnline() {
-        INFO("finished batch processing, exiting")
+        ctx->info(0, "finished batch processing, exiting");
         ctx->stopSoft();
         return false;
     }

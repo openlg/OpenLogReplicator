@@ -1,5 +1,5 @@
 /* Header for CharacterSetKO16KSCCS class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,7 +28,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define KO16KSCCS_b2_max    0xFE
 
 namespace OpenLogReplicator {
-    class CharacterSetKO16KSCCS : public CharacterSet16bit {
+    class CharacterSetKO16KSCCS final : public CharacterSet16bit {
     protected:
         static typeUnicode16 unicode_map_KO16KSCCS_2b[(KO16KSCCS_b1_max - KO16KSCCS_b1_min + 1) *
                                                       (KO16KSCCS_b2_max - KO16KSCCS_b2_min + 1)];

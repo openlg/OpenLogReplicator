@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 10.2
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,14 +28,14 @@ namespace OpenLogReplicator {
         uint16_t fieldLength = 0;
 
         if (ctx->dumpRedoLog >= 1) {
-            ctx->dumpStream << "index redo (kdxlin):  insert leaf row" << std::endl;
+            ctx->dumpStream << "index redo (kdxlin):  insert leaf row\n";
         }
 
         RedoLogRecord::nextField(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0A0201);
         // Field: 1
         ktbRedo(ctx, redoLogRecord, fieldPos, fieldLength);
 
-        if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0B0202))
+        if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0A0202))
             return;
         // Field: 2
 
@@ -43,17 +43,17 @@ namespace OpenLogReplicator {
             if (fieldLength < 6)
                 return;
 
-            uint16_t itl = ctx->read16(redoLogRecord->data + fieldPos);
+            uint8_t itl = redoLogRecord->data[fieldPos];
             uint16_t sno = ctx->read16(redoLogRecord->data + fieldPos + 2);
             uint16_t rowSize = ctx->read16(redoLogRecord->data + fieldPos + 4);
 
-            ctx->dumpStream << "REDO: SINGLE / -- / -- " << std::endl;
-            ctx->dumpStream << "itl: " << std::dec << itl <<
+            ctx->dumpStream << "REDO: SINGLE / -- / -- " << '\n';
+            ctx->dumpStream << "itl: " << std::dec << static_cast<uint64_t>(itl) <<
                     ", sno: " << std::dec << sno <<
-                    ", row size " << std::dec << rowSize << std::endl;
+                    ", row size " << std::dec << rowSize << '\n';
         }
 
-        if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0B0202))
+        if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0A0202))
             return;
         // Field: 3
 
@@ -64,17 +64,17 @@ namespace OpenLogReplicator {
             ctx->dumpStream << "insert key: (" << std::dec << fieldLength << "): ";
 
             if (fieldLength > 20)
-                ctx->dumpStream << std::endl;
+                ctx->dumpStream << '\n';
 
             for (uint64_t j = 0; j < fieldLength; ++j) {
-                ctx->dumpStream << " " << std::setfill('0') << std::setw(2) << std::hex << (uint64_t)redoLogRecord->data[fieldPos + j];
-                if ((j % 25) == 24 && j != (uint64_t)fieldLength - 1)
-                    ctx->dumpStream << std::endl;
+                ctx->dumpStream << " " << std::setfill('0') << std::setw(2) << std::hex << static_cast<uint64_t>(redoLogRecord->data[fieldPos + j]);
+                if ((j % 25) == 24 && j != static_cast<uint64_t>(fieldLength) - 1)
+                    ctx->dumpStream << '\n';
             }
-            ctx->dumpStream << std::endl;
+            ctx->dumpStream << '\n';
         }
 
-        if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0B0202))
+        if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0A0202))
             return;
         // Field: 4
 
@@ -85,14 +85,14 @@ namespace OpenLogReplicator {
             ctx->dumpStream << "keydata: (" << std::dec << fieldLength << "): ";
 
             if (fieldLength > 20)
-                ctx->dumpStream << std::endl;
+                ctx->dumpStream << '\n';
 
             for (uint64_t j = 0; j < fieldLength; ++j) {
-                ctx->dumpStream << " " << std::setfill('0') << std::setw(2) << std::hex << (uint64_t)redoLogRecord->data[fieldPos + j];
-                if ((j % 25) == 24 && j != (uint64_t)fieldLength - 1)
-                    ctx->dumpStream << std::endl;
+                ctx->dumpStream << " " << std::setfill('0') << std::setw(2) << std::hex << static_cast<uint64_t>(redoLogRecord->data[fieldPos + j]);
+                if ((j % 25) == 24 && j != static_cast<uint64_t>(fieldLength) - 1)
+                    ctx->dumpStream << '\n';
             }
-            ctx->dumpStream << std::endl;
+            ctx->dumpStream << '\n';
         }
     }
 }

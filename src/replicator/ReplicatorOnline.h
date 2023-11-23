@@ -1,5 +1,5 @@
 /* Header for ReplicatorOnline class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -27,7 +27,7 @@ namespace OpenLogReplicator {
     class DatabaseEnvironment;
     class Schema;
 
-    class ReplicatorOnline : public Replicator {
+    class ReplicatorOnline final : public Replicator {
     protected:
         static const char* SQL_GET_ARCHIVE_LOG_LIST;
         static const char* SQL_GET_DATABASE_INFORMATION;
@@ -89,7 +89,7 @@ namespace OpenLogReplicator {
         void readSystemDictionariesDetails(Schema* schema, typeScn targetScn, typeUser user, typeObj obj);
         void readSystemDictionaries(Schema* schema, typeScn targetScn, const std::string& owner, const std::string& table, typeOptions options);
         void createSchemaForTable(typeScn targetScn, const std::string& owner, const std::string& table, const std::vector<std::string>& keys,
-                                  const std::string& keysStr, typeOptions options);
+                                  const std::string& keysStr, typeOptions options, std::list<std::string> &msgs);
         void updateOnlineRedoLogData() override;
 
     public:
@@ -98,8 +98,8 @@ namespace OpenLogReplicator {
         bool keepConnection;
 
         ReplicatorOnline(Ctx* newCtx, void (*newArchGetLog)(Replicator* replicator), Builder* newBuilder, Metadata* newMetadata,
-                         TransactionBuffer* newTransactionBuffer, std::string newAlias, const char* newDatabase, const char* newUser, const char* newPassword,
-                         const char* newConnectString, bool newKeepConnection);
+                         TransactionBuffer* newTransactionBuffer, const std::string& newAlias, const char* newDatabase, const char* newUser,
+                         const char* newPassword, const char* newConnectString, bool newKeepConnection);
         ~ReplicatorOnline() override;
 
         void goStandby() override;

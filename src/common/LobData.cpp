@@ -1,5 +1,5 @@
 /* Definition of LobData
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -20,12 +20,42 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #include "LobData.h"
 
 namespace OpenLogReplicator {
-    LobData::LobData()  {
+    LobDataElement::LobDataElement() :
+            dba(0),
+            offset(0) {
+    }
+
+    LobDataElement::LobDataElement(typeDba newDba, uint32_t newOffset) :
+            dba(newDba),
+            offset(newOffset) {
+    }
+
+    LobDataElement::~LobDataElement() {
+
+    }
+    bool LobDataElement::operator<(const LobDataElement& other) const {
+        if (dba < other.dba)
+            return true;
+
+        if (dba > other.dba)
+            return false;
+
+        if (offset < other.offset)
+            return true;
+
+        return false;
+    }
+
+
+    LobData::LobData() :
+            pageSize(0),
+            sizePages(0),
+            sizeRest(0) {
     }
 
     LobData::~LobData()  {
-        for (auto it: dataMap) {
-            uint8_t* ptr = it.second;
+        for (auto dataMapIt: dataMap) {
+            uint8_t* ptr = dataMapIt.second;
             delete[] ptr;
         }
         dataMap.clear();

@@ -1,5 +1,5 @@
 /* Class to handle 16-bit character sets
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -32,20 +32,20 @@ namespace OpenLogReplicator {
 
     CharacterSet16bit::~CharacterSet16bit() = default;
 
-    typeUnicode CharacterSet16bit::decode(const uint8_t*& str, uint64_t& length) const {
+    typeUnicode CharacterSet16bit::decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const {
         uint64_t byte1 = *str++;
         --length;
         if (byte1 <= 0x7F)
             return byte1;
 
         if (length == 0)
-            return badChar(byte1);
+            return badChar(ctx, xid, byte1);
 
         uint64_t byte2 = *str++;
         --length;
 
         if (byte1 < byte1min || byte1 > byte1max || byte2 < byte2min || byte2 > byte2max)
-            return badChar(byte1, byte2);
+            return badChar(ctx, xid, byte1, byte2);
 
         return readMap(byte1, byte2);
     }

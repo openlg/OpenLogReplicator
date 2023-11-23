@@ -1,5 +1,5 @@
 /* Exception of redo log file format
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -20,13 +20,15 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #include "RedoLogException.h"
 
 namespace OpenLogReplicator {
-    RedoLogException::RedoLogException(std::string newMsg) :
+    RedoLogException::RedoLogException(int newCode, std::string newMsg) :
             exception(),
+            code(newCode),
             msg(std::move(newMsg)) {
     }
 
-    RedoLogException::RedoLogException(const char* newMsg) :
+    RedoLogException::RedoLogException(int newCode, const char* newMsg) :
             exception(),
+            code(newCode),
             msg(newMsg) {
     }
 

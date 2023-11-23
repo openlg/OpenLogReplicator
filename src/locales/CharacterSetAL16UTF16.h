@@ -1,5 +1,5 @@
 /* Header for CharacterSetAL16UTF16 class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,12 +23,12 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define CHARACTER_SET_AL16UTF16_H_
 
 namespace OpenLogReplicator {
-    class CharacterSetAL16UTF16 : public CharacterSet {
+    class CharacterSetAL16UTF16 final : public CharacterSet {
     public:
         CharacterSetAL16UTF16();
         ~CharacterSetAL16UTF16() override;
 
-        typeUnicode decode(const uint8_t*& str, uint64_t& length) const override;
+        typeUnicode decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const override;
     };
 }
 

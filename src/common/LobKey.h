@@ -1,5 +1,5 @@
 /* Header for LobKey class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -24,10 +24,11 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define LOB_KEY_H_
 
 namespace OpenLogReplicator {
-    class LobKey {
+    class LobKey final {
     public:
-        LobKey(typeLobId newLobId, typeDba newPage);
+        LobKey(const typeLobId& newLobId, typeDba newPage);
         LobKey(const LobKey& other);
+        virtual ~LobKey();
 
         bool operator<(const LobKey& other) const;
         bool operator!=(const LobKey& other) const;

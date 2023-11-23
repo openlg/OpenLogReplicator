@@ -1,5 +1,5 @@
 /* Header for Database connection class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -27,7 +27,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 namespace OpenLogReplicator {
     class DatabaseEnvironment;
 
-    class DatabaseConnection {
+    class DatabaseConnection final {
     public:
         std::string user;
         std::string password;

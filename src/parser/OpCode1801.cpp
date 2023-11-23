@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 24.1
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -31,20 +31,20 @@ namespace OpenLogReplicator {
 
         RedoLogRecord::nextField(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x180101);
         // Field: 1
-        if (fieldLength < 18) {
-            WARNING("too short field for 24.1: " << std::dec << fieldLength << " offset: " << redoLogRecord->dataOffset)
-            return;
-        }
-        redoLogRecord->xid = typeXid((typeUsn)ctx->read16(redoLogRecord->data + fieldPos + 4),
+        if (fieldLength < 18)
+            throw RedoLogException(50061, "too short field 24.1.1: " +
+                                   std::to_string(fieldLength) + " offset: " + std::to_string(redoLogRecord->dataOffset));
+
+        redoLogRecord->xid = typeXid(static_cast<typeUsn>(ctx->read16(redoLogRecord->data + fieldPos + 4)),
                                      ctx->read16(redoLogRecord->data + fieldPos + 6),
                                      ctx->read32(redoLogRecord->data + fieldPos + 8));
         // uint16_t type = ctx->read16(redoLogRecord->ctx + fieldPos + 12);
-        uint16_t tmp = ctx->read16(redoLogRecord->data + fieldPos + 16);
+        uint16_t ddlType = ctx->read16(redoLogRecord->data + fieldPos + 16);
         // uint16_t seq = ctx->read16(redoLogRecord->ctx + fieldPos + 18);
         // uint16_t cnt = ctx->read16(redoLogRecord->ctx + fieldPos + 20);
 
         // Temporary object
-        if (tmp != 4 && tmp != 5 && tmp != 6 && tmp != 8 && tmp != 9 && tmp != 10)
+        if (ddlType != 4 && ddlType != 5 && ddlType != 6 && ddlType != 8 && ddlType != 9 && ddlType != 10)
             validDdl = true;
 
         if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x180102))

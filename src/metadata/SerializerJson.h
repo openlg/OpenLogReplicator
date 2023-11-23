@@ -1,5 +1,5 @@
 /* Header for SerializerJson class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -19,43 +19,41 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
-#include <set>
 
 #include "Serializer.h"
 
 #ifndef SERIALIZER_JSON_H_
 #define SERIALIZER_JSON_H_
 
-#define SERIALIZER_ENDL     <<std::endl
+#define SERIALIZER_ENDL     <<'\n'
 
 namespace OpenLogReplicator {
     class Ctx;
 
-    class SerializerJson: public Serializer {
+    class SerializerJson final : public Serializer {
     protected:
-        std::string escape(const std::string& name);
-        void deserializeSysCCol(Metadata* metadata, const std::string& name, const rapidjson::Value& sysCColJson);
-        void deserializeSysCDef(Metadata* metadata, const std::string& name, const rapidjson::Value& sysCDefJson);
-        void deserializeSysCol(Metadata* metadata, const std::string& name, const rapidjson::Value& sysColJson);
-        void deserializeSysDeferredStg(Metadata* metadata, const std::string& name, const rapidjson::Value& sysCDefJson);
-        void deserializeSysECol(Metadata* metadata, const std::string& name, const rapidjson::Value& sysEColJson);
-        void deserializeSysLob(Metadata* metadata, const std::string& name, const rapidjson::Value& sysLobJson);
-        void deserializeSysLobCompPart(Metadata* metadata, const std::string& name, const rapidjson::Value& sysLobCompPartJson);
-        void deserializeSysLobFrag(Metadata* metadata, const std::string& name, const rapidjson::Value& sysLobFragJson);
-        void deserializeSysObj(Metadata* metadata, const std::string& name, const rapidjson::Value& sysObjJson);
-        void deserializeSysTab(Metadata* metadata, const std::string& name, const rapidjson::Value& sysTabJson);
-        void deserializeSysTabComPart(Metadata* metadata, const std::string& name, const rapidjson::Value& sysTabComPartJson);
-        void deserializeSysTabPart(Metadata* metadata, const std::string& name, const rapidjson::Value& sysTabPartJson);
-        void deserializeSysTabSubPart(Metadata* metadata, const std::string& name, const rapidjson::Value& sysTabSubPartJson);
-        void deserializeSysTs(Metadata* metadata, const std::string& name, const rapidjson::Value& sysUserJson);
-        void deserializeSysUser(Metadata* metadata, const std::string& name, const rapidjson::Value& sysUserJson);
+        void deserializeSysCCol(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysCColJson);
+        void deserializeSysCDef(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysCDefJson);
+        void deserializeSysCol(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysColJson);
+        void deserializeSysDeferredStg(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysCDefJson);
+        void deserializeSysECol(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysEColJson);
+        void deserializeSysLob(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysLobJson);
+        void deserializeSysLobCompPart(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysLobCompPartJson);
+        void deserializeSysLobFrag(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysLobFragJson);
+        void deserializeSysObj(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysObjJson);
+        void deserializeSysTab(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysTabJson);
+        void deserializeSysTabComPart(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysTabComPartJson);
+        void deserializeSysTabPart(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysTabPartJson);
+        void deserializeSysTabSubPart(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysTabSubPartJson);
+        void deserializeSysTs(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysTsJson);
+        void deserializeSysUser(Metadata* metadata, const std::string& fileName, const rapidjson::Value& sysUserJson);
 
     public:
         SerializerJson();
         ~SerializerJson() override;
 
-        [[nodiscard]] bool deserialize(Metadata* metadata, const std::string& ss, const std::string& name, std::set<std::string>& msgs, bool loadMetadata,
-                                       bool storeSchema) override;
+        [[nodiscard]] bool deserialize(Metadata* metadata, const std::string& ss, const std::string& fileName, std::list<std::string>& msgs,
+                                       bool loadMetadata, bool storeSchema) override;
         void serialize(Metadata* metadata, std::ostringstream& ss, bool noSchema) override;
     };
 }

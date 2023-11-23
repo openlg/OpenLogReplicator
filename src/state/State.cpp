@@ -1,5 +1,5 @@
 /* Base class for state saving for checkpoint/schema
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -17,10 +17,13 @@ You should have received a copy of the GNU General Public License
 along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "../common/Ctx.h"
 #include "State.h"
 
 namespace OpenLogReplicator {
-    State::State() = default;
+    State::State(Ctx* newCtx) :
+            ctx(newCtx) {
+    }
 
     State::~State() = default;
 }

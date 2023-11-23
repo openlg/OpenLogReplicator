@@ -1,5 +1,5 @@
 /* Definition of types and macros
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -27,8 +27,6 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #ifndef TYPES_H_
 #define TYPES_H_
 
-#define ERROR(__x)                              {std::ostringstream __s; time_t __now = time(nullptr); tm __nowTm = *localtime(&__now); char __str[50]; strftime(__str, sizeof(__str), "%F %T", &__nowTm); __s << __str << " [ERROR] " << __x << std::endl; std::cerr << __s.str(); }
-
 typedef uint32_t typeResetlogs;
 typedef uint32_t typeActivation;
 typedef uint16_t typeSum;
@@ -39,6 +37,7 @@ typedef uint64_t typeUba;
 typedef uint32_t typeSeq;
 typedef uint64_t typeScn;
 typedef uint16_t typeSubScn;
+typedef uint64_t typeIdx;
 typedef uint16_t typeSlt;
 typedef uint32_t typeSqn;
 typedef uint8_t typeRci;
@@ -63,18 +62,44 @@ typedef uint16_t typeUnicode16;
 typedef uint32_t typeUnicode32;
 typedef uint64_t typeUnicode;
 
-#define CONFIG_SCHEMA_VERSION                   "0.9.50"
+#define CONFIG_SCHEMA_VERSION                   "1.3.1"
 #define CHECKPOINT_FILE_MAX_SIZE                1024
 #define CONFIG_FILE_MAX_SIZE                    1048576
 #define CHECKPOINT_SCHEMA_FILE_MAX_SIZE         2147483648
-#define ZERO_SEQ                                ((typeSeq)0xFFFFFFFF)
-#define ZERO_SCN                                ((typeScn)0xFFFFFFFFFFFFFFFF)
-#define ZERO_BLK                                ((typeBlk)0xFFFFFFFF)
+#define ZERO_SEQ                                (static_cast<typeSeq>(0xFFFFFFFF))
+#define ZERO_SCN                                (static_cast<typeScn>(0xFFFFFFFFFFFFFFFF))
+#define ZERO_BLK                                (static_cast<typeBlk>(0xFFFFFFFF))
 #define MEMORY_ALIGNMENT                        512
 #define MAX_PATH_LENGTH                         2048
 #define MAX_NO_COLUMNS                          1000
 #define MAX_TRANSACTIONS_LIMIT                  1048576
 #define MAX_RECORDS_IN_LWN                      1048576
+
+#define DB_FORMAT_DEFAULT                       0
+#define DB_FORMAT_ADD_DML                       1
+#define DB_FORMAT_ADD_DDL                       2
+
+#define ATTRIBUTES_FORMAT_BEGIN                 1
+#define ATTRIBUTES_FORMAT_DML                   2
+#define ATTRIBUTES_FORMAT_COMMIT                4
+
+#define INTERVAL_DTS_FORMAT_UNIX_NANO           0
+#define INTERVAL_DTS_FORMAT_UNIX_MICRO          1
+#define INTERVAL_DTS_FORMAT_UNIX_MILLI          2
+#define INTERVAL_DTS_FORMAT_UNIX                3
+#define INTERVAL_DTS_FORMAT_UNIX_NANO_STRING    4
+#define INTERVAL_DTS_FORMAT_UNIX_MICRO_STRING   5
+#define INTERVAL_DTS_FORMAT_UNIX_MILLI_STRING   6
+#define INTERVAL_DTS_FORMAT_UNIX_STRING         7
+#define INTERVAL_DTS_FORMAT_ISO8601_SPACE       8
+#define INTERVAL_DTS_FORMAT_ISO8601_COMMA       9
+#define INTERVAL_DTS_FORMAT_ISO8601_DASH        10
+
+#define INTERVAL_YTM_FORMAT_MONTHS              0
+#define INTERVAL_YTM_FORMAT_MONTHS_STRING       1
+#define INTERVAL_YTM_FORMAT_STRING_YM_SPACE     2
+#define INTERVAL_YTM_FORMAT_STRING_YM_COMMA     3
+#define INTERVAL_YTM_FORMAT_STRING_YM_DASH      4
 
 #define MESSAGE_FORMAT_DEFAULT                  0
 #define MESSAGE_FORMAT_FULL                     1
@@ -83,20 +108,38 @@ typedef uint64_t typeUnicode;
 #define MESSAGE_FORMAT_SKIP_BEGIN               4
 #define MESSAGE_FORMAT_SKIP_COMMIT              8
 
-#define TIMESTAMP_FORMAT_UNIX                   0
-#define TIMESTAMP_FORMAT_ISO8601                1
-#define TIMESTAMP_FORMAT_ALL_PAYLOADS           2
+#define TIMESTAMP_FORMAT_UNIX_NANO              0
+#define TIMESTAMP_FORMAT_UNIX_MICRO             1
+#define TIMESTAMP_FORMAT_UNIX_MILLI             2
+#define TIMESTAMP_FORMAT_UNIX                   3
+#define TIMESTAMP_FORMAT_UNIX_NANO_STRING       4
+#define TIMESTAMP_FORMAT_UNIX_MICRO_STRING      5
+#define TIMESTAMP_FORMAT_UNIX_MILLI_STRING      6
+#define TIMESTAMP_FORMAT_UNIX_STRING            7
+#define TIMESTAMP_FORMAT_ISO8601                8
+
+#define TIMESTAMP_TZ_FORMAT_UNIX_NANO_STRING    0
+#define TIMESTAMP_TZ_FORMAT_UNIX_MICRO_STRING   1
+#define TIMESTAMP_TZ_FORMAT_UNIX_MILLI_STRING   2
+#define TIMESTAMP_TZ_FORMAT_UNIX_STRING         3
+#define TIMESTAMP_TZ_FORMAT_ISO8601             4
+
+#define TIMESTAMP_JUST_BEGIN                    0
+#define TIMESTAMP_ALL_PAYLOADS                  1
 
 #define CHAR_FORMAT_UTF8                        0
 #define CHAR_FORMAT_NOMAPPING                   1
 #define CHAR_FORMAT_HEX                         2
 
 #define SCN_FORMAT_NUMERIC                      0
-#define SCN_FORMAT_HEX                          1
-#define SCN_FORMAT_ALL_PAYLOADS                 2
+#define SCN_FORMAT_TEXT_HEX                     1
+
+#define SCN_JUST_BEGIN                          0
+#define SCN_ALL_PAYLOADS                        1
+#define SCN_ALL_COMMIT_VALUE                    2
 
 #define RID_FORMAT_SKIP                         0
-#define RID_FORMAT_DEFAULT                      1
+#define RID_FORMAT_TEXT                         1
 
 #define XID_FORMAT_TEXT_HEX                     0
 #define XID_FORMAT_TEXT_DEC                     1
@@ -131,6 +174,7 @@ typedef uint64_t typeUnicode;
 
 #define OPTIONS_DEBUG_TABLE                     1
 #define OPTIONS_SYSTEM_TABLE                    2
+#define OPTIONS_SCHEMA_TABLE                    4
 
 #define TABLE_SYS_CCOL                          1
 #define TABLE_SYS_CDEF                          2
@@ -148,14 +192,15 @@ typedef uint64_t typeUnicode;
 #define TABLE_SYS_TS                            14
 #define TABLE_SYS_USER                          15
 
-#define BLOCK(__uba)                            ((uint32_t)((__uba)&0xFFFFFFFF))
-#define SEQUENCE(__uba)                         ((uint16_t)((((uint64_t)(__uba))>>32)&0xFFFF))
-#define RECORD(__uba)                           ((uint8_t)((((uint64_t)(__uba))>>48)&0xFF))
-#define PRINTUBA(__uba)                         "0x"<<std::setfill('0')<<std::setw(8)<<std::hex<<BLOCK(__uba)<<"."<<std::setfill('0')<<std::setw(4)<<std::hex<<SEQUENCE(__uba)<<"."<<std::setfill('0')<<std::setw(2)<<std::hex<<(uint32_t)RECORD(__uba)
+#define BLOCK(__uba)                            (static_cast<uint32_t>((__uba)&0xFFFFFFFF))
+#define SEQUENCE(__uba)                         (static_cast<uint16_t>(((static_cast<uint64_t>(__uba))>>32)&0xFFFF))
+#define RECORD(__uba)                           (static_cast<uint8_t>(((static_cast<uint64_t>(__uba))>>48)&0xFF))
+#define PRINTUBA(__uba)                         "0x"<<std::setfill('0')<<std::setw(8)<<std::hex<<BLOCK(__uba)<<"."<<std::setfill('0')<<std::setw(4)<<std::hex<<SEQUENCE(__uba)<<"."<<std::setfill('0')<<std::setw(2)<<std::hex<<static_cast<uint32_t>RECORD(__uba)
 
-#define SCN(__scn1,__scn2)                      ((((uint64_t)(__scn1))<<32)|(__scn2))
-#define PRINTSCN48(__scn)                       "0x"<<std::setfill('0')<<std::setw(4)<<std::hex<<((uint32_t)((__scn)>>32)&0xFFFF)<<"."<<std::setw(8)<<((__scn)&0xFFFFFFFF)
+#define SCN(__scn1,__scn2)                      (((static_cast<uint64_t>(__scn1))<<32)|(__scn2))
+#define PRINTSCN48(__scn)                       "0x"<<std::setfill('0')<<std::setw(4)<<std::hex<<(static_cast<uint32_t>((__scn)>>32)&0xFFFF)<<"."<<std::setw(8)<<((__scn)&0xFFFFFFFF)
 #define PRINTSCN64(__scn)                       "0x"<<std::setfill('0')<<std::setw(16)<<std::hex<<(__scn)
+#define PRINTSCN64D(__scn)                      "0x"<<std::setfill('0')<<std::setw(4)<<std::hex<<(static_cast<uint32_t>((__scn)>>48)&0xFFFF)<<"."<<std::setw(4)<<(static_cast<uint32_t>((__scn)>>32)&0xFFFF)<<"."<<std::setw(8)<<((__scn)&0xFFFFFFFF)
 
 #define JSON_PARAMETER_LENGTH   256
 #define JSON_BROKERS_LENGTH     4096
@@ -165,7 +210,7 @@ typedef uint64_t typeUnicode;
 #define JSON_PASSWORD_LENGTH    128
 #define JSON_SERVER_LENGTH      4096
 #define JSON_KEY_LENGTH         4096
-#define JSON_XID_LIST_LENGTH    1048576
+#define JSON_XID_LENGTH         32
 
 #define FB_N                    0x01
 #define FB_P                    0x02

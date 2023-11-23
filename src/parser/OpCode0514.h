@@ -1,5 +1,5 @@
 /* Header for OpCode0514 class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,9 +23,11 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define OPCODE0514_H_
 
 namespace OpenLogReplicator {
-    class OpCode0514: public OpCode0513 {
+    class Transaction;
+
+    class OpCode0514 final : public OpCode0513 {
     public:
-        static void process(Ctx* ctx, RedoLogRecord* redoLogRecord);
+        static void process(Ctx* ctx, RedoLogRecord* redoLogRecord, Transaction* transaction);
     };
 }
 

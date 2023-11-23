@@ -1,5 +1,5 @@
 /* Header for WriterKafka class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -19,26 +19,24 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 
 #include <librdkafka/rdkafka.h>
 
+#include <map>
 #include "Writer.h"
 
 #ifndef WRITER_KAFKA_H_
 #define WRITER_KAFKA_H_
 
 #define MAX_KAFKA_MESSAGE_MB        953
-#define MAX_KAFKA_MAX_MESSAGES      10000000
 
 namespace OpenLogReplicator {
-    class WriterKafka : public Writer {
+    class WriterKafka final : public Writer {
     protected:
-        std::string brokers;
         std::string topic;
-        uint64_t maxMessages;
-        bool enableIdempotence;
-        char errstr[512];
+        char errStr[512];
+        std::map<std::string, std::string> properties;
         rd_kafka_t* rk;
         rd_kafka_topic_t* rkt;
         rd_kafka_conf_t* conf;
-        static void dr_msg_cb(rd_kafka_t* rkCb, const rd_kafka_message_t* rkmessage, void* opaque);
+        static void dr_msg_cb(rd_kafka_t* rkCb, const rd_kafka_message_t* rkMessage, void* opaque);
         static void error_cb(rd_kafka_t* rkCb, int err, const char* reason, void* opaque);
         static void logger_cb(const rd_kafka_t* rkCb, int level, const char* fac, const char* buf);
 
@@ -47,10 +45,11 @@ namespace OpenLogReplicator {
         void pollQueue() override;
 
     public:
-        WriterKafka(Ctx* newCtx, const std::string newAlias, const std::string& newDatabase, Builder* newBuilder, Metadata* newMetadata, const char* newBrokers,
-                    const char* newTopic, uint64_t newMaxMessages, bool newEnableIdempotence);
+        WriterKafka(Ctx* newCtx, const std::string& newAlias, const std::string& newDatabase, Builder* newBuilder, Metadata* newMetadata,
+                    const char* newTopic);
         ~WriterKafka() override;
 
+        void addProperty(const std::string& key, const std::string& value);
         void initialize() override;
     };
 }

@@ -1,5 +1,5 @@
 /* Header for ReplicatorBatch class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,16 +23,17 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define REPLICATOR_BATCH_H_
 
 namespace OpenLogReplicator {
-    class ReplicatorBatch : public Replicator {
+    class ReplicatorBatch final : public Replicator {
     protected:
         const char* getModeName() const override;
         bool continueWithOnline() override;
         void positionReader() override;
         void createSchema() override;
+        virtual void updateOnlineRedoLogData();
 
     public:
         ReplicatorBatch(Ctx* newCtx, void (*newArchGetLog)(Replicator* replicator), Builder* newBuilder, Metadata* newMetadata,
-                        TransactionBuffer* newTransactionBuffer, std::string newAlias, const char* newDatabase);
+                        TransactionBuffer* newTransactionBuffer, const std::string& newAlias, const char* newDatabase);
         ~ReplicatorBatch() override;
     };
 }

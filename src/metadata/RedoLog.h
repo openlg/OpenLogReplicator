@@ -1,5 +1,5 @@
 /* Header for RedoLog class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -25,7 +25,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define REDOLOG_H_
 
 namespace OpenLogReplicator {
-    class RedoLog {
+    class RedoLog final {
     public:
         int64_t group;
         std::string path;

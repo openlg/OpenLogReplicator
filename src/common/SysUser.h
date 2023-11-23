@@ -1,5 +1,5 @@
-/* Header for SysUser class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of schema SYS.USER$
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -29,20 +29,33 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define SYS_USER_SPARE1_SUPP_LOG_ALL         8
 
 namespace OpenLogReplicator {
-    class SysUser {
+    class SysUser final {
     public:
-        SysUser(typeRowId& newRowId, typeUser newUser, const char* newName, uint64_t newSpare11, uint64_t newSpare12, bool newSingle, bool newTouched);
+        SysUser(typeRowId& newRowId, typeUser newUser, const char* newName, uint64_t newSpare11, uint64_t newSpare12, bool newSingle) :
+                rowId(newRowId),
+                user(newUser),
+                name(newName),
+                spare1(newSpare11, newSpare12),
+                single(newSingle) {
+        }
 
-        bool operator!=(const SysUser& other) const;
-        [[nodiscard]] bool isSuppLogPrimary();
-        [[nodiscard]] bool isSuppLogAll();
+        bool operator!=(const SysUser& other) const {
+            return (other.rowId != rowId) || (other.user != user) || (other.name != name) || (other.spare1 != spare1);
+        }
+
+        [[nodiscard]] bool isSuppLogPrimary() {
+            return spare1.isSet64(SYS_USER_SPARE1_SUPP_LOG_PRIMARY);
+        }
+
+        [[nodiscard]] bool isSuppLogAll() {
+            return spare1.isSet64(SYS_USER_SPARE1_SUPP_LOG_ALL);
+        }
 
         typeRowId rowId;
         typeUser user;
         std::string name;
         typeIntX spare1;            // NULL
         bool single;
-        bool touched;
     };
 }
 

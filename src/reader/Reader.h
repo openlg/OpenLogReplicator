@@ -1,5 +1,5 @@
 /* Header for Reader class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -117,7 +117,7 @@ namespace OpenLogReplicator {
         std::vector<std::string> paths;
         std::string fileName;
 
-        Reader(Ctx* newCtx, const std::string newAlias, const std::string& newDatabase, int64_t newGroup, bool newConfiguredBlockSum);
+        Reader(Ctx* newCtx, const std::string& newAlias, const std::string& newDatabase, int64_t newGroup, bool newConfiguredBlockSum);
         ~Reader() override;
 
         void initialize();

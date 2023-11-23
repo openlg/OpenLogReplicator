@@ -1,3 +1,124 @@
+1.3.1
+- fix: date and timestamp with year before 1900 or after 2262 produce incorrect values
+- enhancement: unify gencfg.sql script for 11g and 12+
+- fix: bad checkpoint file causes startup to fail with no explanation
+- fix: fail with too short field length message
+- code style cleanup
+- fix: LOB data handling
+- enhancement: add session information to output
+
+1.3.0
+- doc: updated README.md, added reference to tutorial github project
+- fix: PDB/CDB support
+- fix: unified comment style
+- fix: checkpoint file is not created when no data is replicated after start
+- fix: offline startup failed to read redo log files
+- fix: DDL operation that rearranges columns is not handled properly
+- enhancement: reload config file for schema update after the file is updated
+- fix: stacktrace when processing DDL data to protobuf format
+- fix: typo in trace message
+- enhancement: added more timestamp formatting options
+- enhancement: added support for UROWID format
+- fix: LOB handing improvement for Oracle 19c
+- enhancement: added timezone field for timestamp with timezone type
+- fix: file writer path handling and file handling fixes
+- enhancement: add database name to payload data
+- enhancement: add schema information for ddl events
+- fix: correctly handling of non-ASCII characters in DDL text
+- enhancement: added support for interval type
+- enhancement: added xmltype support
+- enhancement: added support for type timestamp with local time zone
+- fix: client stream disconnect causes replication to stop
+- enhancement: added options interval-ytm and interval-dts to control interval type output format
+- fix: minor style fixes
+- fix: network client date was not consistent when reconnected
+- fix: scn information inconsistency in transaction fix
+- enhancement: added flag 2 for "scn" field type to control scn values
+- enhancement: changed checkpointing mechanism to allow more frequent checkpoints
+- experimental: added partial support for binary XMLType data
+- enhancement: performance optimizations
+
+1.2.0
+- doc: Introduction to OpenLogReplicator
+- fix: minor bug related to sending ddl operations to output
+- fix: minor parameter validation bug
+- fix: minor issue related to sending character data in hex format for debug purposes
+- cleanup in parameter names: renamed "max-size" "max-file-size" and "format" to "timestamp-format" for better understanding
+- doc: Commands Reference Manual
+- doc: Log Messages Guide
+- doc: Installation Guide
+- doc: Release Notes
+- doc: Troubleshooting Guide
+- doc: User Manual
+- fix: treat character decoding issues as warnings
+- fix: removed obsolete example file
+- fix: removed obsolete files
+- changed "trace" parameter to "log-level"
+- changed "trace2" parameter to "trace"
+- fix: unification of log messages
+- change: config file version is "1.2.0"
+- fix: changed type of nullable field from numeric to boolean
+- fix: uncaught exception in writer module
+- fix: protocol buffer message missing scn data
+- fix: allow server to handle bad start requests for network mode
+- fix: network client display fixes and handle big messages
+- fix: network client memory release on error
+- change: removed "max-messages", "enable-idempotence" and "brokers" parameters and added "properties" parameter instead
+- change: by default checkpoint messages are not sent to output
+- fix: compilation error when Kafka is disabled
+- fix: checkpoint did not advance when no data was replicated
+
+1.1.0
+- debug: trace formatting changes
+- enhancement: add handling of OP 26.2 for experimental LOB support
+- fix: experimental LOB support
+- enhancement: code style corrections
+- fix: error handling of incorrect config file
+- fix: experimental LOB support Unicode character decoding
+- new feature: basicfile LOB (removed being experimental)
+
+1.0.1 - released on 2023.02.20
+- fix: incorrect checkpoint file when non-ascii characters are used in schema files
+- fix: incorrect message printed on error
+- fix: allow to use stop-* parameters without using schemaless mode
+- enhancement: added consistency checks for experimental LOB support
+- fix: standardization of output messages
+- fix: race condition might result in transaction data loss
+- fix: experimental LOB support schema script error
+- enhancement: optimized DDL processing speed
+- enhancement: added debug info for release builds
+- enhancement: added support for Oracle 19.18 and 21.8
+- fix: experimental LOB data missing
+
+1.0.0 - released on 2022.12.10
+- copy from 0.9.58
+
+0.9.58
+- added support for Oracle 19.17 and 21.7
+- bug fixes
+- code cleanup
+
+0.9.57
+- fixed compilation warnings for Release
+
+0.9.56
+- bug fixes
+
+0.9.55
+- experimental lob 12.1+ fixes
+- fixed bugs related to schema & checkpoints
+
+0.9.54
+- bug fixes
+
+0.9.53
+- bug fixes
+
+0.9.52
+- experimental LOB processing fixes
+- minor bug fixes
+- code style cleanup
+
 0.9.51
 - added support for binary_float, binary_double types
 
@@ -77,7 +198,7 @@
 
 0.9.35-beta
 - fixed bug: throwing exception in constructor [#28]
-- fixed bug: throwing exception in callback functions for Kakfa module
+- fixed bug: throwing exception in callback functions for Kafka module
 - fixed bug: error "split undo is broken" when undo for op code 11.22 split
 - fixed bug: reading from standby redo log files failed during switch
 - optimized Oracle connection handling
@@ -121,7 +242,7 @@
 0.9.29-beta
 - fixed bug: "disable-checks" parameter value check
 - fixed bug: schemaless mode failing with compressed tables
-- fixed bug: incorrect strting offset in checkpoint file
+- fixed bug: incorrect string offset in checkpoint file
 - fixed bug: reading from inactive online redo log could print warnings/errors
 - fixed bug: merging split undo blocks could sometimes fail
 - fixed bug: schemaless processing failed with DML commands
@@ -294,7 +415,7 @@
 - by default row id is not included in the output
 - online mode: fixed startup by seq
 - updated protobuf output module to be in sync with json code
-- rewritten column handling to avoid performance issues due to memory allocation/deallocation
+- rewritten column handling to avoid performance issues due to memory allocation/de-allocation
 - decreased contention on locks, internal buffer is flushed less often
 - inlining code to create output stream in json format
 - inlining some code for red log parsing

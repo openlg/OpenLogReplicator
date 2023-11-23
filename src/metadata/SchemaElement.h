@@ -1,5 +1,5 @@
 /* Header for SchemaElement class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -25,7 +25,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define SCHEMA_ELEMENT_H_
 
 namespace OpenLogReplicator {
-    class SchemaElement {
+    class SchemaElement final {
 
     public:
         std::string owner;

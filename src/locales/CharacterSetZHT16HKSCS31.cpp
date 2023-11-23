@@ -1,5 +1,5 @@
 /* Class to handle character set ZHT16HKSCS31
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -21,7 +21,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 
 namespace OpenLogReplicator {
     CharacterSetZHT16HKSCS31::CharacterSetZHT16HKSCS31() :
-        CharacterSet16bit("ZHT16HKSCS31", (const typeUnicode16*) unicode_map_ZHT16HKSCS31_2b, ZHT16HKSCS31_b1_min, ZHT16HKSCS31_b1_max,
+        CharacterSet16bit("ZHT16HKSCS31", reinterpret_cast<const typeUnicode16*>(unicode_map_ZHT16HKSCS31_2b), ZHT16HKSCS31_b1_min, ZHT16HKSCS31_b1_max,
                           ZHT16HKSCS31_b2_min, ZHT16HKSCS31_b2_max) {
     }
 

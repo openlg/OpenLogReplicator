@@ -1,5 +1,5 @@
 /* Header for RuntimeException class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,12 +28,13 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define RUNTIME_EXCEPTION_H_
 
 namespace OpenLogReplicator {
-    class RuntimeException: public std::exception {
+    class RuntimeException final : public std::exception {
     public:
+        int code;
         std::string msg;
 
-        explicit RuntimeException(const std::string newMsg);
-        explicit RuntimeException(const char* newMsg);
+        explicit RuntimeException(int newCode, const std::string newMsg);
+        explicit RuntimeException(int newCode, const char* newMsg);
         virtual ~RuntimeException();
 
         friend std::ostream& operator<<(std::ostream& os, const RuntimeException& exception);

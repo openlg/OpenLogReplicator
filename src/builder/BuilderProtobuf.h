@@ -1,5 +1,5 @@
 /* Header for BuilderProtobuf class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -25,7 +25,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define BUILDER_PROTOBUF_H_
 
 namespace OpenLogReplicator {
-    class BuilderProtobuf : public Builder {
+    class BuilderProtobuf final : public Builder {
     protected:
         pb::RedoResponse* redoResponsePB;
         pb::Value* valuePB;
@@ -38,19 +38,21 @@ namespace OpenLogReplicator {
         void columnString(const std::string& columnName) override;
         void columnNumber(const std::string& columnName, uint64_t precision, uint64_t scale) override;
         void columnRaw(const std::string& columnName, const uint8_t* data, uint64_t length) override;
-        void columnTimestamp(const std::string& columnName, struct tm& time_, uint64_t fraction, const char* tz) override;
+        void columnRowId(const std::string& columnName, typeRowId rowId);
+        void columnTimestamp(const std::string& columnName, struct tm& epochTime, uint64_t fraction) override;
+        void columnTimestampTz(const std::string& columnName, struct tm& epochTime, uint64_t fraction, const char* tz) override;
         void appendRowid(typeDataObj dataObj, typeDba bdba, typeSlot slot);
-        void appendHeader(bool first, bool showXid);
+        void appendHeader(typeScn scn, typeTime time_, bool first, bool showDb, bool showXid);
         void appendSchema(OracleTable* table, typeObj obj);
 
-        void appendAfter(LobCtx* lobCtx, OracleTable* table) {
+        void appendAfter(LobCtx* lobCtx, OracleTable* table, uint64_t offset) {
             if (columnFormat > 0 && table != nullptr) {
                 for (typeCol column = 0; column < table->maxSegCol; ++column) {
                     if (values[column][VALUE_AFTER] != nullptr) {
                         if (lengths[column][VALUE_AFTER] > 0) {
                             payloadPB->add_after();
                             valuePB = payloadPB->mutable_after(payloadPB->after_size() - 1);
-                            processValue(lobCtx, table, column, values[column][VALUE_AFTER], lengths[column][VALUE_AFTER], true,
+                            processValue(lobCtx, table, column, values[column][VALUE_AFTER], lengths[column][VALUE_AFTER], offset, true,
                                          compressedAfter);
                         } else {
                             payloadPB->add_after();
@@ -62,7 +64,7 @@ namespace OpenLogReplicator {
             } else {
                 uint64_t baseMax = valuesMax >> 6;
                 for (uint64_t base = 0; base <= baseMax; ++base) {
-                    auto column = (typeCol)(base << 6);
+                    auto column = static_cast<typeCol>(base << 6);
                     for (uint64_t mask = 1; mask != 0; mask <<= 1, ++column) {
                         if (valuesSet[base] < mask)
                             break;
@@ -73,8 +75,8 @@ namespace OpenLogReplicator {
                             if (lengths[column][VALUE_AFTER] > 0) {
                                 payloadPB->add_after();
                                 valuePB = payloadPB->mutable_after(payloadPB->after_size() - 1);
-                                processValue(lobCtx, table, column, values[column][VALUE_AFTER], lengths[column][VALUE_AFTER], true,
-                                             compressedAfter);
+                                processValue(lobCtx, table, column, values[column][VALUE_AFTER], lengths[column][VALUE_AFTER], offset,
+                                             true, compressedAfter);
                             } else {
                                 payloadPB->add_after();
                                 valuePB = payloadPB->mutable_after(payloadPB->after_size() - 1);
@@ -86,15 +88,15 @@ namespace OpenLogReplicator {
             }
         }
 
-        void appendBefore(LobCtx* lobCtx, OracleTable* table) {
+        void appendBefore(LobCtx* lobCtx, OracleTable* table, uint64_t offset) {
             if (columnFormat > 0 && table != nullptr) {
                 for (typeCol column = 0; column < table->maxSegCol; ++column) {
                     if (values[column][VALUE_BEFORE] != nullptr) {
                         if (lengths[column][VALUE_BEFORE] > 0) {
                             payloadPB->add_before();
                             valuePB = payloadPB->mutable_before(payloadPB->before_size() - 1);
-                            processValue(lobCtx, table, column, values[column][VALUE_BEFORE], lengths[column][VALUE_BEFORE], false,
-                                         compressedBefore);
+                            processValue(lobCtx, table, column, values[column][VALUE_BEFORE], lengths[column][VALUE_BEFORE], offset,
+                                         false, compressedBefore);
                         } else {
                             payloadPB->add_before();
                             valuePB = payloadPB->mutable_before(payloadPB->before_size() - 1);
@@ -105,7 +107,7 @@ namespace OpenLogReplicator {
             } else {
                 uint64_t baseMax = valuesMax >> 6;
                 for (uint64_t base = 0; base <= baseMax; ++base) {
-                    auto column = (typeCol)(base << 6);
+                    auto column = static_cast<typeCol>(base << 6);
                     for (uint64_t mask = 1; mask != 0; mask <<= 1, ++column) {
                         if (valuesSet[base] < mask)
                             break;
@@ -116,8 +118,8 @@ namespace OpenLogReplicator {
                             if (lengths[column][VALUE_BEFORE] > 0) {
                                 payloadPB->add_before();
                                 valuePB = payloadPB->mutable_before(payloadPB->before_size() - 1);
-                                processValue(lobCtx, table, column, values[column][VALUE_BEFORE], lengths[column][VALUE_BEFORE], false,
-                                             compressedBefore);
+                                processValue(lobCtx, table, column, values[column][VALUE_BEFORE], lengths[column][VALUE_BEFORE], offset,
+                                             false, compressedBefore);
                             } else {
                                 payloadPB->add_before();
                                 valuePB = payloadPB->mutable_before(payloadPB->before_size() - 1);
@@ -131,27 +133,32 @@ namespace OpenLogReplicator {
 
         void createResponse() {
             if (redoResponsePB != nullptr)
-                throw RuntimeException("PB commit processing failed, message already exists, internal error");
+                throw RuntimeException(50016, "PB commit processing failed, message already exists");
             redoResponsePB = new pb::RedoResponse;
         }
 
-        static void numToString(uint64_t value, char* buf, uint64_t length);
-        void processInsert(LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba, typeSlot slot, typeXid xid) override;
-        void processUpdate(LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba, typeSlot slot, typeXid xid) override;
-        void processDelete(LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba, typeSlot slot, typeXid xid) override;
-        void processDdl(OracleTable* table, typeDataObj dataObj, uint16_t type, uint16_t seq, const char* operation, const char* sql, uint64_t sqlLength)
-                override;
-        void processBeginMessage() override;
+        void numToString(uint64_t value, char* buf, uint64_t length);
+        void processInsert(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba,
+                           typeSlot slot, typeXid xid, uint64_t offset) override;
+        void processUpdate(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba,
+                           typeSlot slot, typeXid xid, uint64_t offset) override;
+        void processDelete(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba,
+                           typeSlot slot, typeXid xid, uint64_t offset) override;
+        void processDdl(typeScn scn, typeSeq sequence, typeTime time_, OracleTable* table, typeObj obj, typeDataObj dataObj, uint16_t type, uint16_t seq,
+                        const char* operation, const char* sql, uint64_t sqlLength) override;
+        void processBeginMessage(typeScn scn, typeSeq sequence, typeTime time) override;
 
     public:
-        BuilderProtobuf(Ctx* newCtx, Locales* newLocales, Metadata* newMetadata, uint64_t newMessageFormat, uint64_t newRidFormat, uint64_t newXidFormat,
-                        uint64_t newTimestampFormat, uint64_t newCharFormat, uint64_t newScnFormat, uint64_t newUnknownFormat, uint64_t newSchemaFormat,
-                        uint64_t newColumnFormat, uint64_t newUnknownType, uint64_t newFlushBuffer);
+        BuilderProtobuf(Ctx* newCtx, Locales* newLocales, Metadata* newMetadata, uint64_t newDbFormat, uint64_t newAttributesFormat,
+                        uint64_t newIntervalDtsFormat, uint64_t newIntervalYtmFormat,uint64_t newMessageFormat, uint64_t newRidFormat, uint64_t newXidFormat,
+                        uint64_t newTimestampFormat, uint64_t newTimestampTzFormat, uint64_t newTimestampAll, uint64_t newCharFormat, uint64_t newScnFormat,
+                        uint64_t newScnAll, uint64_t newUnknownFormat, uint64_t newSchemaFormat, uint64_t newColumnFormat, uint64_t newUnknownType,
+                        uint64_t newFlushBuffer);
         ~BuilderProtobuf() override;
 
         void initialize() override;
-        void processCommit() override;
-        void processCheckpoint(typeScn scn, typeTime time_, typeSeq sequence, uint64_t offset, bool redo) override;
+        void processCommit(typeScn scn, typeSeq sequence, typeTime time) override;
+        void processCheckpoint(typeScn scn, typeSeq sequence, typeTime time_, uint64_t offset, bool redo) override;
     };
 }
 

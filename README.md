@@ -1,28 +1,36 @@
 # OpenLogReplicator
-Open Source Oracle database CDC written purely in C++. Reads transactions directly from database redo log files and streams in JSON or Protobuf format to:
-* Kafka
-* flat file
-* network stream (plain TCP/IP or ZeroMQ)
 
-Updating Protobuf code:
-1. cd proto
-2. export PATH=/opt/protobuf/bin:$PATH
-3. protoc OraProtoBuf.proto --cpp_out=../src/main
+This project contains open source Oracle database CDC written purely in C++.
+OpenLogReplicator reads transactions directly from database redo log files (parses binary files) and streams in JSON or Protobuf format to various targets.
+The following targets are supported:
+- Kafka
+- flat file
+- network stream (plain TCP/IP or ZeroMQ)
 
-Please refer to Docker scripts in https://github.com/bersler/OpenLogReplicator-docker for compilation and run scripts
+## Getting started
 
-The documentation for the OpenLogReplicator program can be found on https://www.bersler.com/openlogreplicator/
+Refer to [OpenLogReplicator tutorials repository](https://github.com/bersler/OpenLogReplicator-tutorials) for a quick start with the project.
 
-Please do not create issues claiming that the documentation is missing. It is still being created. This is not speed up the process, but will it will down it down. Instead of writing documenation and finishing the code the time is spent on answering questions.
+## Documentation
 
-The currently available chapters are:
+1. [Introduction to OpenLogReplicator](documentation/introduction/introduction.adoc)
+2. [User Manual](documentation/user-manual/user-manual.adoc)
+3. [Reference Manual](documentation/reference-manual/reference-manual.adoc)
+4. [Installation Guide](documentation/installation/installation.adoc)
+5. [Release Notes](documentation/release-notes/release-notes.adoc)
+6. [Troubleshooting Guide](documentation/troubleshooting/troubleshooting.adoc)
+7. [Log Message Guide](documentation/log-messages/log-messages.adoc)
 
-1. Getting started: https://www.bersler.com/openlogreplicator/getting-started/
-2. Installation: https://www.bersler.com/openlogreplicator/installation/
-3. Configuration: https://www.bersler.com/openlogreplicator/configuration/
-4. Tutorials: https://www.bersler.com/openlogreplicator/tutorials/
-5. FAQ: https://www.bersler.com/openlogreplicator/faq/
-6. Support: https://www.bersler.com/openlogreplicator/support/
-7. Contribution: https://www.bersler.com/openlogreplicator/contribution/
+Additionally:
+1. [Tutorials](https://www.bersler.com/openlogreplicator/tutorials/)
+2. [FAQ](https://www.bersler.com/openlogreplicator/faq/)
+3. [Support](https://www.bersler.com/openlogreplicator/support/)
+4. [Contribution](https://www.bersler.com/openlogreplicator/contribution/)
 
-I have also opened a gitter chat at https://gitter.im/bersler/OpenLogReplicator
+Use also [Gitter chat](https://gitter.im/bersler/OpenLogReplicator).
+
+## Sponsoring the Project
+
+If you (or your company) are benefiting from the project and would like to support the contributor, kindly support the project.
+
+<a href="https://www.buymeacoffee.com/bersler" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 160px !important;" ></a>

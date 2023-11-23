@@ -1,5 +1,5 @@
-/* Header for SysTs class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of schema SYS.TS$
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -26,17 +26,23 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define SYS_TS_NAME_LENGTH                 30
 
 namespace OpenLogReplicator {
-    class SysTs {
+    class SysTs final {
     public:
-        SysTs(typeRowId& newRowId, typeTs newTs, const char* newName, uint32_t newBlockSize, bool newTouched);
+        SysTs(typeRowId& newRowId, typeTs newTs, const char* newName, uint32_t newBlockSize) :
+                rowId(newRowId),
+                ts(newTs),
+                name(newName),
+                blockSize(newBlockSize) {
+        }
 
-        bool operator!=(const SysTs& other) const;
+        bool operator!=(const SysTs& other) const {
+            return (other.rowId != rowId) || (other.ts != ts) || (other.name != name) || (other.blockSize != blockSize);
+        }
 
         typeRowId rowId;
         typeTs ts;
         std::string name;
         uint32_t blockSize;
-        bool touched;
     };
 }
 

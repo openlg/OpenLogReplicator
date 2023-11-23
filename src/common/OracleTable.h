@@ -1,5 +1,5 @@
 /* Header for OracleTable class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,7 +28,7 @@ namespace OpenLogReplicator {
     class OracleColumn;
     class OracleLob;
 
-    class OracleTable {
+    class OracleTable final {
     public:
         typeObj obj;
         typeDataObj dataObj;
@@ -44,8 +44,6 @@ namespace OpenLogReplicator {
         std::vector<OracleColumn*> columns;
         std::vector<OracleLob*> lobs;
         std::vector<typeObj2> tablePartitions;
-        std::vector<typeObj> lobPartitions;
-        std::vector<typeObj> lobIndexes;
         std::vector<typeCol> pk;
         uint64_t systemTable;
         bool sys;
@@ -56,9 +54,7 @@ namespace OpenLogReplicator {
 
         void addColumn(OracleColumn* column);
         void addLob(OracleLob* lob);
-        void addTablePartition(typeObj obj, typeDataObj dataObj);
-        void addLobPartition(typeObj obj);
-        void addLobIndex(typeObj obj);
+        void addTablePartition(typeObj newObj, typeDataObj newDataObj);
 
         friend std::ostream& operator<<(std::ostream& os, const OracleTable& table);
     };

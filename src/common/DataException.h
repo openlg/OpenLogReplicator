@@ -1,5 +1,5 @@
 /* Header for DataException class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -24,12 +24,13 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define DATA_EXCEPTION_H_
 
 namespace OpenLogReplicator {
-    class DataException: public std::exception {
+    class DataException final : public std::exception {
     public:
+        int code;
         std::string msg;
 
-        explicit DataException(const std::string newMsg);
-        explicit DataException(const char* newMsg);
+        explicit DataException(int newCode, const std::string newMsg);
+        explicit DataException(int newCode, const char* newMsg);
         ~DataException() override;
 
         friend std::ostream& operator<<(std::ostream& os, const DataException& exception);

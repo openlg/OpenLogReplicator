@@ -1,5 +1,5 @@
 /* Base class for source and target thread
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -22,7 +22,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #include "Thread.h"
 
 namespace OpenLogReplicator {
-    Thread::Thread(Ctx* newCtx, std::string newAlias) :
+    Thread::Thread(Ctx* newCtx, const std::string& newAlias) :
             ctx(newCtx),
             pthread(0),
             alias(newAlias),
@@ -32,11 +32,15 @@ namespace OpenLogReplicator {
     Thread::~Thread() = default;
 
     void Thread::wakeUp() {
-        TRACE(TRACE2_THREADS, "THREADS: thread (" << std::hex << std::this_thread::get_id() << ") wake up")
+        if (ctx->trace & TRACE_THREADS) {
+            std::ostringstream ss;
+            ss << std::this_thread::get_id();
+            ctx->logTrace(TRACE_THREADS, "thread (" + ss.str() + ") wake up");
+        }
     }
 
     void* Thread::runStatic(void* voidThread) {
-        Thread* thread = (Thread*)voidThread;
+        Thread* thread = reinterpret_cast<Thread*>(voidThread);
         thread->run();
         thread->finished = true;
         return nullptr;

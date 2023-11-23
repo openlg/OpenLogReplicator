@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 10.8
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -31,8 +31,7 @@ namespace OpenLogReplicator {
         // Field: 1
         if (fieldLength > 0) {
             if (ctx->dumpRedoLog >= 1) {
-                ctx->dumpStream << "index redo (kdxlne): (count=" << std::dec << redoLogRecord->fieldCnt << ") init header of newly allocated leaf block" <<
-                        std::endl;
+                ctx->dumpStream << "index redo (kdxlne): (count=" << std::dec << redoLogRecord->fieldCnt << ") init header of newly allocated leaf block\n";
             }
 
             ktbRedo(ctx, redoLogRecord, fieldPos, fieldLength);
@@ -42,20 +41,21 @@ namespace OpenLogReplicator {
             kdxln(ctx, redoLogRecord, fieldPos, fieldLength);
         } else {
             if (ctx->dumpRedoLog >= 1) {
-                ctx->dumpStream << "index redo (kdxlne): (count=" << std::dec << redoLogRecord->fieldCnt << ") init leaf block being split" << std::endl;
+                ctx->dumpStream << "index redo (kdxlne): (count=" << std::dec << redoLogRecord->fieldCnt << ") init leaf block being split\n";
             }
 
             RedoLogRecord::nextField(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0A0803);
             // Field: 2
 
             if (fieldLength < 4) {
-                WARNING("too short field split kdxlne: " << std::dec << fieldLength << " offset: " << redoLogRecord->dataOffset)
+                ctx->warning(70001, "too short field kdxlne: " + std::to_string(fieldLength) + " offset: " +
+                             std::to_string(redoLogRecord->dataOffset));
                 return;
             }
 
             if (ctx->dumpRedoLog >= 1) {
                 uint32_t kdxlenxt = ctx->read32(redoLogRecord->data + fieldPos + 0);
-                ctx->dumpStream << "zeroed lock count and free space, kdxlenxt = 0x" << std::hex << kdxlenxt << std::endl;
+                ctx->dumpStream << "zeroed lock count and free space, kdxlenxt = 0x" << std::hex << kdxlenxt << '\n';
             }
         }
 
@@ -63,8 +63,8 @@ namespace OpenLogReplicator {
         // Field: 3
         uint64_t rows = fieldLength / 2 - 1;
         if (ctx->dumpRedoLog >= 1) {
-            ctx->dumpStream << "new block has " << std::dec << rows << " rows" << std::endl;
-            ctx->dumpStream << "dumping row index" << std::endl;
+            ctx->dumpStream << "new block has " << std::dec << rows << " rows\n";
+            ctx->dumpStream << "dumping row index\n";
         }
         dumpMemory(ctx, redoLogRecord, fieldPos, fieldLength);
 
@@ -77,33 +77,34 @@ namespace OpenLogReplicator {
         }
 
         if (ctx->dumpRedoLog >= 1) {
-            ctx->dumpStream << "dumping rows" << std::endl;
+            ctx->dumpStream << "dumping rows\n";
         }
         dumpMemory(ctx, redoLogRecord, fieldPos, fieldLength);
     }
 
     void OpCode0A08::kdxln(Ctx* ctx, RedoLogRecord* redoLogRecord, uint64_t& fieldPos, uint16_t& fieldLength) {
         if (fieldLength < 16) {
-            WARNING("too short field KDXLN: " << std::dec << fieldLength << " offset: " << redoLogRecord->dataOffset)
+            ctx->warning(70001, "too short field kdxln: " + std::to_string(fieldLength) + " offset: " +
+                         std::to_string(redoLogRecord->dataOffset));
             return;
         }
 
         if (ctx->dumpRedoLog >= 1) {
-            auto itl = (uint8_t) redoLogRecord->data[fieldPos];
-            auto nco = (uint8_t) redoLogRecord->data[fieldPos + 1];
-            auto dsz = (uint8_t) redoLogRecord->data[fieldPos + 2];
-            auto col = (uint8_t) redoLogRecord->data[fieldPos + 3];
-            auto flg = (uint8_t) redoLogRecord->data[fieldPos + 4];
+            auto itl = static_cast<uint8_t>(redoLogRecord->data[fieldPos]);
+            auto nco = static_cast<uint8_t>(redoLogRecord->data[fieldPos + 1]);
+            auto dsz = static_cast<uint8_t>(redoLogRecord->data[fieldPos + 2]);
+            auto col = static_cast<uint8_t>(redoLogRecord->data[fieldPos + 3]);
+            auto flg = static_cast<uint8_t>(redoLogRecord->data[fieldPos + 4]);
             typeDba nxt = ctx->read32(redoLogRecord->data + fieldPos + 8);
             typeDba prv = ctx->read32(redoLogRecord->data + fieldPos + 12);
 
-            ctx->dumpStream << "kdxlnitl = " << std::dec << (uint64_t)itl << std::endl;
-            ctx->dumpStream << "kdxlnnco = " << std::dec << (uint64_t)nco << std::endl;
-            ctx->dumpStream << "kdxlndsz = " << std::dec << (uint64_t)dsz << std::endl;
-            ctx->dumpStream << "kdxlncol = " << std::dec << (uint64_t)col << std::endl;
-            ctx->dumpStream << "kdxlnflg = " << std::dec << (uint64_t)flg << std::endl;
-            ctx->dumpStream << "kdxlnnxt = 0x" << std::hex << nxt << std::endl;
-            ctx->dumpStream << "kdxlnprv = 0x" << std::hex << prv << std::endl;
+            ctx->dumpStream << "kdxlnitl = " << std::dec << static_cast<uint64_t>(itl) << '\n';
+            ctx->dumpStream << "kdxlnnco = " << std::dec << static_cast<uint64_t>(nco) << '\n';
+            ctx->dumpStream << "kdxlndsz = " << std::dec << static_cast<uint64_t>(dsz) << '\n';
+            ctx->dumpStream << "kdxlncol = " << std::dec << static_cast<uint64_t>(col) << '\n';
+            ctx->dumpStream << "kdxlnflg = " << std::dec << static_cast<uint64_t>(flg) << '\n';
+            ctx->dumpStream << "kdxlnnxt = 0x" << std::hex << nxt << '\n';
+            ctx->dumpStream << "kdxlnprv = 0x" << std::hex << prv << '\n';
         }
     }
 }

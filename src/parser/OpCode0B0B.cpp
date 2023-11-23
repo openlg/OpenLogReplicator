@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 11.11
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -40,10 +40,9 @@ namespace OpenLogReplicator {
             return;
         // Field: 3
         redoLogRecord->rowLenghsDelta = fieldPos;
-        if (fieldLength < redoLogRecord->nrow * 2) {
-            WARNING("field length list length too short: " << std::dec << fieldLength << " offset: " << redoLogRecord->dataOffset)
-            return;
-        }
+        if (fieldLength < redoLogRecord->nRow * 2)
+            throw RedoLogException(50061, "too short field 11.11.3: " + std::to_string(fieldLength) + " offset: " +
+                                   std::to_string(redoLogRecord->dataOffset));
 
         if (!RedoLogRecord::nextFieldOpt(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0B0B04))
             return;

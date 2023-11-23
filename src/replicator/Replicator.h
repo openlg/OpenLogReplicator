@@ -1,5 +1,5 @@
 /* Header for Replicator class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -38,15 +38,10 @@ namespace OpenLogReplicator {
     class Reader;
     class RedoLogRecord;
     class State;
-    class SystemTransaction;
     class Transaction;
     class TransactionBuffer;
 
     struct parserCompare {
-        bool operator()(Parser* const& p1, Parser* const& p2);
-    };
-
-    struct parserCompareReverse {
         bool operator()(Parser* const& p1, Parser* const& p2);
     };
 
@@ -80,7 +75,7 @@ namespace OpenLogReplicator {
 
     public:
         Replicator(Ctx* newCtx, void (*newArchGetLog)(Replicator* replicator), Builder* newBuilder, Metadata* newMetadata,
-                   TransactionBuffer* newTransactionBuffer, std::string newAlias, const char* newDatabase);
+                   TransactionBuffer* newTransactionBuffer, const std::string& newAlias, const char* newDatabase);
         ~Replicator() override;
 
         void initialize();

@@ -1,5 +1,5 @@
 /* Exception used for parsing input
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -17,18 +17,21 @@ You should have received a copy of the GNU General Public License
 along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include <iostream>
 #include <utility>
 
 #include "DataException.h"
 
 namespace OpenLogReplicator {
-    DataException::DataException(const std::string newMsg) :
+    DataException::DataException(int newCode, const std::string newMsg) :
             exception(),
+            code(newCode),
             msg(std::move(newMsg)) {
     }
 
-    DataException::DataException(const char* newMsg) :
+    DataException::DataException(int newCode, const char* newMsg) :
             exception(),
+            code(newCode),
             msg(newMsg) {
     }
 

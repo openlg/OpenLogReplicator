@@ -1,5 +1,5 @@
 /* Header for NetworkException class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,12 +28,13 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define NETWORK_EXCEPTION_H_
 
 namespace OpenLogReplicator {
-    class NetworkException: public std::exception {
+    class NetworkException final : public std::exception {
     public:
+        int code;
         std::string msg;
 
-        explicit NetworkException(const std::string newMsg);
-        explicit NetworkException(const char* newMsg);
+        explicit NetworkException(int newCode, const std::string newMsg);
+        explicit NetworkException(int newCode, const char* newMsg);
         ~NetworkException() override;
 
         friend std::ostream& operator<<(std::ostream& os, const NetworkException& exception);

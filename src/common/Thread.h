@@ -1,5 +1,5 @@
 /* Header for Thread class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -37,7 +37,7 @@ namespace OpenLogReplicator {
         std::string alias;
         std::atomic<bool> finished;
 
-        explicit Thread(Ctx* newCtx, std::string newAlias);
+        explicit Thread(Ctx* newCtx, const std::string& newAlias);
         virtual ~Thread();
         virtual void wakeUp();
         static void* runStatic(void* thread);

@@ -1,5 +1,5 @@
 /* Header for OpenLogReplicator
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -34,7 +34,7 @@ namespace OpenLogReplicator {
     class TransactionBuffer;
     class Writer;
 
-    class OpenLogReplicator {
+    class OpenLogReplicator final {
     protected:
         std::list<Replicator*> replicators;
         std::list<Checkpoint*> checkpoints;
@@ -46,13 +46,13 @@ namespace OpenLogReplicator {
         Replicator* replicator;
         int fid;
         char* configFileBuffer;
-        std::string fileName;
+        std::string configFileName;
         Ctx* ctx;
 
         void mainProcessMapping(const rapidjson::Value& readerJson);
 
     public:
-        OpenLogReplicator(std::string fileName, Ctx* ctx);
+        OpenLogReplicator(const std::string& newConfigFileName, Ctx* newCtx);
         virtual ~OpenLogReplicator();
         int run();
     };

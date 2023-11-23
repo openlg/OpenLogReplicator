@@ -1,5 +1,5 @@
-/* Header for type typeTime
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of type typeTime
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -26,7 +26,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define TYPE_TIME_H_
 
 namespace OpenLogReplicator {
-    class typeTime {
+    class typeTime final {
         uint32_t data;
     public:
         typeTime() : data(0) {
@@ -49,22 +49,22 @@ namespace OpenLogReplicator {
         }
 
         [[nodiscard]] time_t toTime() const {
-            struct tm epochtime = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            struct tm epochTime = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                     nullptr};
-            memset((void*)&epochtime, 0, sizeof(epochtime));
+            memset(reinterpret_cast<void*>(&epochTime), 0, sizeof(epochTime));
             uint64_t rest = data;
-            epochtime.tm_sec = (int)(rest % 60);
+            epochTime.tm_sec = static_cast<int>(rest % 60);
             rest /= 60;
-            epochtime.tm_min = (int)(rest % 60);
+            epochTime.tm_min = static_cast<int>(rest % 60);
             rest /= 60;
-            epochtime.tm_hour = (int)(rest % 24);
+            epochTime.tm_hour = static_cast<int>(rest % 24);
             rest /= 24;
-            epochtime.tm_mday = (int)((rest % 31) + 1);
+            epochTime.tm_mday = static_cast<int>((rest % 31) + 1);
             rest /= 31;
-            epochtime.tm_mon = (int)(rest % 12);
+            epochTime.tm_mon = static_cast<int>(rest % 12);
             rest /= 12;
-            epochtime.tm_year = (int)(rest + 88);
-            return mktime(&epochtime);
+            epochTime.tm_year = static_cast<int>(rest + 88);
+            return mktime(&epochTime);
         }
 
         void toIso8601(char* buffer) const {

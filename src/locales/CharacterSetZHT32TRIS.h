@@ -1,5 +1,5 @@
 /* Header for CharacterSetZHT32TRIS class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -31,7 +31,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define ZHT32TRIS_b4_max    0xFE
 
 namespace OpenLogReplicator {
-    class CharacterSetZHT32TRIS : public CharacterSet {
+    class CharacterSetZHT32TRIS final : public CharacterSet {
     protected:
         static typeUnicode16 unicode_map_ZHT32TRIS_4b[(ZHT32TRIS_b2_max - ZHT32TRIS_b2_min + 1) *
                                                       (ZHT32TRIS_b3_max - ZHT32TRIS_b3_min + 1) *
@@ -41,7 +41,7 @@ namespace OpenLogReplicator {
         CharacterSetZHT32TRIS();
         ~CharacterSetZHT32TRIS() override;
 
-        typeUnicode decode(const uint8_t*& str, uint64_t& length) const override;
+        typeUnicode decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const override;
     };
 }
 

@@ -1,5 +1,5 @@
 /* Class to handle 7-bit character sets
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -27,7 +27,7 @@ namespace OpenLogReplicator {
 
     CharacterSet7bit::~CharacterSet7bit() = default;
 
-    typeUnicode CharacterSet7bit::decode(const uint8_t*& str, uint64_t& length) const {
+    typeUnicode CharacterSet7bit::decode(Ctx* ctx __attribute__((unused)), typeXid xid __attribute__((unused)), const uint8_t*& str, uint64_t& length) const {
         uint64_t byte1 = *str++;
         --length;
         return readMap(byte1 & 0x7F);

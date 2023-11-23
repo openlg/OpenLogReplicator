@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 11.5
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -51,7 +51,7 @@ namespace OpenLogReplicator {
             // Field: 4
             redoLogRecord->rowData = fieldNum;
             if (ctx->dumpRedoLog >= 1)
-                dumpColsVector(ctx, redoLogRecord, redoLogRecord->data + fieldPos, ctx->read16(colNums));
+                dumpColVector(ctx, redoLogRecord, redoLogRecord->data + fieldPos, ctx->read16(colNums));
         } else {
             redoLogRecord->rowData = fieldNum + 1;
             uint8_t bits = 1;
@@ -63,12 +63,13 @@ namespace OpenLogReplicator {
                 if (i < redoLogRecord->ccData)
                     RedoLogRecord::nextField(ctx, redoLogRecord, fieldNum, fieldPos, fieldLength, 0x0B0506);
 
-                if (fieldLength > 0 && (*nulls & bits) != 0 && i < redoLogRecord->ccData) {
-                    WARNING("length: " << std::dec << fieldLength << " for NULL column offset: " << redoLogRecord->dataOffset)
-                }
+                if (fieldLength > 0 && (*nulls & bits) != 0 && i < redoLogRecord->ccData)
+                    throw RedoLogException(50061, "too short field 11.5." + std::to_string(fieldNum) + ": " +
+                                           std::to_string(fieldLength) + " offset: " + std::to_string(redoLogRecord->dataOffset));
 
                 if (ctx->dumpRedoLog >= 1)
                     dumpCols(ctx, redoLogRecord, redoLogRecord->data + fieldPos, ctx->read16(colNums), fieldLength, *nulls & bits);
+
                 bits <<= 1;
                 colNums += 2;
                 if (bits == 0) {

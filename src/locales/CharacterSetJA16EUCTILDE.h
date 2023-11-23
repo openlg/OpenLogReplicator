@@ -1,5 +1,5 @@
 /* Header for CharacterSetJA16EUCTILDE class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,7 +23,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define CHARACTER_SET_JA16EUCTILDE_H_
 
 namespace OpenLogReplicator {
-    class CharacterSetJA16EUCTILDE : public CharacterSetJA16EUC {
+    class CharacterSetJA16EUCTILDE final : public CharacterSetJA16EUC {
     protected:
         [[nodiscard]] typeUnicode readMap2(uint64_t byte1, uint64_t byte2) const override;
 

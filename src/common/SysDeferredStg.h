@@ -1,5 +1,5 @@
-/* Header for SysDeferredStg class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of schema SYS.DEFERRED_STG$
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -27,17 +27,25 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define SYSDEFERREDSTG_FLAGSSTG_COMPRESSED  4
 
 namespace OpenLogReplicator {
-    class SysDeferredStg {
+    class SysDeferredStg final {
     public:
-        SysDeferredStg(typeRowId& newRowId, typeObj newObj, uint64_t newFlagsStg1, uint64_t newFlagsStg2, bool newTouched);
+        SysDeferredStg(typeRowId& newRowId, typeObj newObj, uint64_t newFlagsStg1, uint64_t newFlagsStg2) :
+                rowId(newRowId),
+                obj(newObj),
+                flagsStg(newFlagsStg1, newFlagsStg2) {
+        }
 
-        bool operator!=(const SysDeferredStg& other) const;
-        [[nodiscard]] bool isCompressed();
+        bool operator!=(const SysDeferredStg& other) const {
+            return (other.rowId != rowId) || (other.obj != obj) || (other.flagsStg != flagsStg);
+        }
+
+        [[nodiscard]] bool isCompressed() {
+            return flagsStg.isSet64(SYSDEFERREDSTG_FLAGSSTG_COMPRESSED);
+        }
 
         typeRowId rowId;
         typeObj obj;
         typeIntX flagsStg;          // NULL
-        bool touched;
     };
 }
 

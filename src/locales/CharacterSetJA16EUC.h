@@ -1,5 +1,5 @@
 /* Header for CharacterSetJA16EUC class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -45,7 +45,7 @@ namespace OpenLogReplicator {
         explicit CharacterSetJA16EUC(const char* newName);
         ~CharacterSetJA16EUC() override;
 
-        typeUnicode decode(const uint8_t*& str, uint64_t& length) const override;
+        typeUnicode decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const override;
     };
 }
 

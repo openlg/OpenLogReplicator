@@ -1,5 +1,5 @@
 /* Header for CharacterSetZHT16HKSCS31 class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,7 +28,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define ZHT16HKSCS31_b2_max     0xFE
 
 namespace OpenLogReplicator {
-    class CharacterSetZHT16HKSCS31 : public CharacterSet16bit {
+    class CharacterSetZHT16HKSCS31 final : public CharacterSet16bit {
     protected:
         static typeUnicode32 unicode_map_ZHT16HKSCS31_2b[(ZHT16HKSCS31_b1_max - ZHT16HKSCS31_b1_min + 1) *
                                                          (ZHT16HKSCS31_b2_max - ZHT16HKSCS31_b2_min + 1)];

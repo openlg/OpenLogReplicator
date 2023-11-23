@@ -1,5 +1,5 @@
-/* Header for SysLobCompPart class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of schema SYS.LOBCOMPPART$
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -24,26 +24,42 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define SYS_LOB_COMP_PART_H_
 
 namespace OpenLogReplicator {
-    class SysLobCompPartKey {
+    class SysLobCompPartKey final {
     public:
-        SysLobCompPartKey(typeObj newLObj, typeObj newPartObj);
+        SysLobCompPartKey(typeObj newLObj, typeObj newPartObj) :
+                lObj(newLObj),
+                partObj(newPartObj) {
+        }
 
-        bool operator<(const SysLobCompPartKey& other) const;
+        bool operator<(const SysLobCompPartKey& other) const {
+            if (lObj < other.lObj)
+                return true;
+            if (other.lObj < lObj)
+                return false;
+            if (partObj < other.partObj)
+                return true;
+            return false;
+        }
 
         typeObj lObj;
         typeObj partObj;
     };
 
-    class SysLobCompPart {
+    class SysLobCompPart final {
     public:
-        SysLobCompPart(typeRowId& newRowId, typeObj newPartObj, typeObj newLObj, bool newTouched);
+        SysLobCompPart(typeRowId& newRowId, typeObj newPartObj, typeObj newLObj) :
+                rowId(newRowId),
+                partObj(newPartObj),
+                lObj(newLObj) {
+        }
 
-        bool operator!=(const SysLobCompPart& other) const;
+        bool operator!=(const SysLobCompPart& other) const {
+            return (other.rowId != rowId) || (other.partObj != partObj) || (other.lObj != lObj);
+        }
 
         typeRowId rowId;
         typeObj partObj;
         typeObj lObj;
-        bool touched;
     };
 }
 

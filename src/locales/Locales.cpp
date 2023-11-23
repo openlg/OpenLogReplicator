@@ -1,5 +1,5 @@
 /* Base class for locales
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -40,8 +40,8 @@ namespace OpenLogReplicator {
     Locales::Locales() = default;
 
     Locales::~Locales() {
-        for (auto it : Locales::characterMap) {
-            CharacterSet* cs = it.second;
+        for (auto characterMapIt : Locales::characterMap) {
+            CharacterSet* cs = characterMapIt.second;
             delete cs;
         }
         timeZoneMap.clear();

@@ -1,5 +1,5 @@
 /* Header for ConfigurationException class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,12 +28,13 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define CONFIGURATION_EXCEPTION_H_
 
 namespace OpenLogReplicator {
-    class ConfigurationException: public std::exception {
+    class ConfigurationException final : public std::exception {
     public:
+        int code;
         std::string msg;
 
-        explicit ConfigurationException(const std::string& newMsg);
-        explicit ConfigurationException(const char* newMsg);
+        explicit ConfigurationException(int newCode, const std::string& newMsg);
+        explicit ConfigurationException(int newCode, const char* newMsg);
         ~ConfigurationException() override;
 
         friend std::ostream& operator<<(std::ostream& os, const ConfigurationException& exception);

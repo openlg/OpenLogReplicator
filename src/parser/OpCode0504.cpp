@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 5.4
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -38,17 +38,16 @@ namespace OpenLogReplicator {
             ktucf(ctx, redoLogRecord, fieldPos, fieldLength);
 
         if (ctx->dumpRedoLog >= 1) {
-            ctx->dumpStream << std::endl;
+            ctx->dumpStream << '\n';
             if ((redoLogRecord->flg & FLG_ROLLBACK_OP0504) != 0)
-                ctx->dumpStream << "rolled back transaction" << std::endl;
+                ctx->dumpStream << "rolled back transaction\n";
         }
     }
 
     void OpCode0504::ktucm(Ctx* ctx, RedoLogRecord* redoLogRecord, uint64_t& fieldPos, uint16_t& fieldLength) {
-        if (fieldLength < 20) {
-            WARNING("too short field ktucm: " << std::dec << fieldLength << " offset: " << redoLogRecord->dataOffset)
-            return;
-        }
+        if (fieldLength < 20)
+            throw RedoLogException(50061, "too short field ktucm: " + std::to_string(fieldLength) + " offset: " +
+                                   std::to_string(redoLogRecord->dataOffset));
 
         redoLogRecord->xid = typeXid(redoLogRecord->usn,
                                      ctx->read16(redoLogRecord->data + fieldPos + 0),
@@ -59,7 +58,8 @@ namespace OpenLogReplicator {
             uint16_t srt = ctx->read16(redoLogRecord->data + fieldPos + 8);  // TODO: find field position/size
             uint32_t sta = ctx->read32(redoLogRecord->data + fieldPos + 12);
 
-            ctx->dumpStream << "ktucm redo: slt: 0x" << std::setfill('0') << std::setw(4) << std::hex << (uint64_t)redoLogRecord->xid.slt() <<
+            ctx->dumpStream << "ktucm redo: slt: 0x" << std::setfill('0') << std::setw(4) << std::hex <<
+                    static_cast<uint64_t>(redoLogRecord->xid.slt()) <<
                     " sqn: 0x" << std::setfill('0') << std::setw(8) << std::hex << redoLogRecord->xid.sqn() <<
                     " srt: " << std::dec << srt <<
                     " sta: " << std::dec << sta <<
@@ -68,10 +68,9 @@ namespace OpenLogReplicator {
     }
 
     void OpCode0504::ktucf(Ctx* ctx, RedoLogRecord* redoLogRecord, uint64_t& fieldPos, uint16_t& fieldLength) {
-        if (fieldLength < 16) {
-            WARNING("too short field ktucf: " << std::dec << fieldLength << " offset: " << redoLogRecord->dataOffset)
-            return;
-        }
+        if (fieldLength < 16)
+            throw RedoLogException(50061, "too short field ktucf: " + std::to_string(fieldLength) + " offset: " +
+                                   std::to_string(redoLogRecord->dataOffset));
 
         redoLogRecord->uba = ctx->read56(redoLogRecord->data + fieldPos + 0);
 
@@ -84,7 +83,7 @@ namespace OpenLogReplicator {
                     " uba: " << PRINTUBA(redoLogRecord->uba) <<
                     " ext: " << std::dec << ext <<
                     " spc: " << std::dec << spc <<
-                    " fbi: " << std::dec << (uint64_t)fbi <<
+                    " fbi: " << std::dec << static_cast<uint64_t>(fbi) <<
                     " ";
         }
     }

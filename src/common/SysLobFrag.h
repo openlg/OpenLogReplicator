@@ -1,5 +1,5 @@
-/* Header for SysLobFrag class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of schema SYS.LOBFRAG$
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -24,27 +24,44 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define SYS_LOB_FRAG_H_
 
 namespace OpenLogReplicator {
-    class SysLobFragKey {
+    class SysLobFragKey final {
     public:
-        SysLobFragKey(typeObj newParentObj, typeObj newFragObj);
+        SysLobFragKey(typeObj newParentObj, typeObj newFragObj) :
+                parentObj(newParentObj),
+                fragObj(newFragObj) {
+        }
 
-        bool operator<(const SysLobFragKey& other) const;
+        bool operator<(const SysLobFragKey& other) const {
+            if (parentObj < other.parentObj)
+                return true;
+            if (other.parentObj < parentObj)
+                return false;
+            if (fragObj < other.fragObj)
+                return true;
+            return false;
+        }
 
         typeObj parentObj;
         typeObj fragObj;
     };
 
-    class SysLobFrag {
+    class SysLobFrag final {
     public:
-        SysLobFrag(typeRowId& newRowId, typeObj newFragObj, typeObj newParentObj, typeTs newTs, bool newTouched);
+        SysLobFrag(typeRowId& newRowId, typeObj newFragObj, typeObj newParentObj, typeTs newTs) :
+                rowId(newRowId),
+                fragObj(newFragObj),
+                parentObj(newParentObj),
+                ts(newTs) {
+        }
 
-        bool operator!=(const SysLobFrag& other) const;
+        bool operator!=(const SysLobFrag& other) const {
+            return (other.rowId != rowId) || (other.fragObj != fragObj) || (other.parentObj != parentObj) || (other.ts != ts);
+        }
 
         typeRowId rowId;
         typeObj fragObj;
         typeObj parentObj;
         typeTs ts;
-        bool touched;
     };
 }
 

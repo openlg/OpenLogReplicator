@@ -1,5 +1,5 @@
-/* Header for SysTabPart class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of schema SYS.TABPART$
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -24,27 +24,44 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define SYS_TAB_PART_H_
 
 namespace OpenLogReplicator {
-    class SysTabPartKey {
+    class SysTabPartKey final {
     public:
-        SysTabPartKey(typeObj newBo, typeObj newObj);
+        SysTabPartKey(typeObj newBo, typeObj newObj) :
+                bo(newBo),
+                obj(newObj) {
+        }
 
-        bool operator<(const SysTabPartKey& other) const;
+        bool operator<(const SysTabPartKey& other) const {
+            if (bo < other.bo)
+                return true;
+            if (other.bo < bo)
+                return false;
+            if (obj < other.obj)
+                return true;
+            return false;
+        }
 
         typeObj bo;
         typeObj obj;
     };
 
-    class SysTabPart {
+    class SysTabPart final {
     public:
-        SysTabPart(typeRowId& newRowId, typeObj newObj, typeDataObj newDataObj, typeObj newBo, bool newTouched);
+        SysTabPart(typeRowId& newRowId, typeObj newObj, typeDataObj newDataObj, typeObj newBo) :
+                rowId(newRowId),
+                obj(newObj),
+                dataObj(newDataObj),
+                bo(newBo) {
+        }
 
-        bool operator!=(const SysTabPart& other) const;
+        bool operator!=(const SysTabPart& other) const {
+            return (other.rowId != rowId) || (other.obj != obj) || (other.dataObj != dataObj) || (other.bo != bo);
+        }
 
         typeRowId rowId;
         typeObj obj;
         typeDataObj dataObj;        // NULL
         typeObj bo;
-        bool touched;
     };
 }
 

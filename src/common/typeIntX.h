@@ -1,5 +1,5 @@
-/* Header for type typeIntX
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Definition of type typeIntX
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -18,9 +18,9 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include <cstdint>
+#include <cstring>
+#include <iostream>
 #include <string>
-
-#include "DataException.h"
 
 #ifndef TYPE_INTX_T_H_
 #define TYPE_INTX_T_H_
@@ -29,31 +29,139 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define TYPE_INTX_DIGITS                        39
 
 namespace OpenLogReplicator {
-    class typeIntX {
+    class typeIntX final {
     private:
         uint64_t data[TYPE_INTX_LENGTH];
         static typeIntX BASE10[TYPE_INTX_DIGITS][10];
     public:
-        explicit typeIntX(uint64_t other);
-        typeIntX(uint64_t other1, uint64_t other2);
-        typeIntX();
+        explicit typeIntX(uint64_t other) {
+            data[0] = other;
+            for (uint64_t i = 1; i < TYPE_INTX_LENGTH; ++i)
+                data[i] = 0;
+        }
 
-        static void initializeBASE10();
+        typeIntX(uint64_t other1, uint64_t other2) {
+            data[0] = other1;
+            data[1] = other2;
+            for (uint64_t i = 2; i < TYPE_INTX_LENGTH; ++i)
+                data[i] = 0;
+        }
 
-        bool operator!=(const typeIntX& other) const;
-        bool operator==(const typeIntX& other) const;
-        typeIntX& operator+=(const typeIntX& other);
-        typeIntX& operator=(const typeIntX& other);
-        typeIntX& operator=(uint64_t other);
-        typeIntX& operator=(const std::string& other);
-        typeIntX& operator=(const char* other);
-        typeIntX& set(uint64_t other1, uint64_t other2);
-        typeIntX& setStr(const char* other, uint64_t length);
-        [[nodiscard]] uint64_t get64() const;
-        [[nodiscard]] bool isSet64(uint64_t mask) const;
-        [[nodiscard]] bool isZero() const;
+        typeIntX() {
+            for (uint64_t i = 0; i < TYPE_INTX_LENGTH; ++i)
+                data[i] = 0;
+        }
 
-        friend std::ostream& operator<<(std::ostream& os, const typeIntX& other);
+        static void initializeBASE10() {
+            memset(reinterpret_cast<void*>(BASE10), 0, sizeof(BASE10));
+            for (uint64_t digit = 0; digit < 10; ++digit) {
+                BASE10[0][digit] = digit;
+
+                for (uint64_t pos = 1; pos < TYPE_INTX_DIGITS; ++pos) {
+                    BASE10[pos][digit] = BASE10[pos - 1][digit];
+                    for (uint64_t j = 1; j < 10; ++j)
+                        BASE10[pos][digit] += BASE10[pos - 1][digit];
+                }
+            }
+        }
+
+        bool operator!=(const typeIntX& other) const {
+            for (uint64_t i = 0; i < TYPE_INTX_LENGTH; ++i)
+                if (this->data[i] != other.data[i])
+                    return true;
+            return false;
+        }
+
+        bool operator==(const typeIntX& other) const {
+            for (uint64_t i = 0; i < TYPE_INTX_LENGTH; ++i)
+                if (this->data[i] != other.data[i])
+                    return false;
+            return true;
+        }
+
+        typeIntX& operator+=(const typeIntX& other) {
+            uint64_t carry = 0;
+
+            for (uint64_t i = 0; i < TYPE_INTX_LENGTH; ++i) {
+                if (this->data[i] + other.data[i] + carry < (this->data[i] | other.data[i] | carry)) {
+                    this->data[i] += other.data[i] + carry;
+                    carry = 1;
+                } else {
+                    this->data[i] += other.data[i] + carry;
+                    carry = 0;
+                }
+            }
+            return *this;
+        }
+
+        typeIntX& operator=(const typeIntX& other) {
+            if (&other != this) {
+                for (uint64_t i = 0; i < TYPE_INTX_LENGTH; ++i)
+                    this->data[i] = other.data[i];
+            }
+            return *this;
+        }
+
+        typeIntX& operator=(uint64_t other) {
+            this->data[0] = other;
+            for (uint64_t i = 1; i < TYPE_INTX_LENGTH; ++i)
+                this->data[i] = 0;
+            return *this;
+        }
+
+        typeIntX& set(uint64_t other1, uint64_t other2) {
+            this->data[0] = other1;
+            this->data[1] = other2;
+            for (uint64_t i = 2; i < TYPE_INTX_LENGTH; ++i)
+                this->data[i] = 0;
+            return *this;
+        }
+
+        typeIntX& setStr(const char* other, uint64_t length, std::string& err) {
+            *this = static_cast<uint64_t>(0);
+            if (length > TYPE_INTX_DIGITS) {
+                err = "incorrect conversion of string: " + std::string(other);
+                return *this;
+            }
+
+            for (uint64_t i = 0; i < length; ++i) {
+                if (*other < '0' || *other > '9') {
+                    err = "incorrect conversion of string: " + std::string(other);
+                    return *this;
+                }
+
+                *this += BASE10[length - i - 1][*other - '0'];
+                ++other;
+            }
+            return *this;
+        }
+
+        [[nodiscard]] uint64_t get64() const {
+            return data[0];
+        }
+
+        [[nodiscard]] bool isSet64(uint64_t mask) const {
+            return data[0] & mask;
+        }
+
+        [[nodiscard]] bool isZero() const {
+            for (uint64_t i = 0; i < TYPE_INTX_LENGTH; ++i)
+                if (data[i] != 0)
+                    return false;
+            return true;
+        }
+
+        std::string toString(void) const {
+            std::ostringstream ss;
+            ss << "[";
+            for (uint64_t i = 0; i < TYPE_INTX_LENGTH; ++i) {
+                if (i > 0)
+                    ss << ",";
+                ss << std::dec << data[i];
+            }
+            ss << "]";
+            return ss.str();
+        }
     };
 }
 

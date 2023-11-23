@@ -1,5 +1,5 @@
 /* Header for Metadata class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -33,8 +33,14 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #ifndef METADATA_H_
 #define METADATA_H_
 
-#define METADATA_STATUS_INITIALIZE          0
-#define METADATA_STATUS_REPLICATE           1
+// Replication hasn't started yet. The metadata is not initialized, the starting point of replication is not defined yet
+#define METADATA_STATUS_READY               0
+
+// Replicator tries to start replication with given parameters.
+#define METADATA_STATUS_START               1
+
+// Replication is running. The metadata is initialized, the starting point of replication is defined.
+#define METADATA_STATUS_REPLICATE           2
 
 namespace OpenLogReplicator {
     class Ctx;
@@ -47,9 +53,10 @@ namespace OpenLogReplicator {
     class State;
     class StateDisk;
 
-    class Metadata {
+    class Metadata final {
     protected:
-        std::condition_variable condStartedReplication;
+        std::condition_variable condReplicator;
+        std::condition_variable condWriter;
 
     public:
         Schema* schema;
@@ -59,18 +66,22 @@ namespace OpenLogReplicator {
         State* stateDisk;
         Serializer* serializer;
         std::atomic<uint64_t> status;
-        std::mutex mtx;
+
         // Startup parameters
         std::string database;
         typeScn startScn;
         typeSeq startSequence;
         std::string startTime;
-        int64_t startTimeRel;
+        uint64_t startTimeRel;
+
         // Database parameters
         bool onlineData;
         bool suppLogDbPrimary;
         bool suppLogDbAll;
         bool logArchiveFormatCustom;
+        bool allowedCheckpoints;
+        // The writer is controlling the boot parameters. If the data is not available on startup, don't fail immediately.
+        bool bootFailsafe;
         typeConId conId;
         std::string conName;
         std::string context;
@@ -82,41 +93,52 @@ namespace OpenLogReplicator {
         std::string nlsNcharCharacterSet;
         uint64_t defaultCharacterMapId;
         uint64_t defaultCharacterNcharMapId;
-        // Read position
-        typeSeq sequence;
-        uint64_t offset;
-        typeResetlogs resetlogs;
-        typeActivation activation;
-        uint64_t checkpoints;
         typeScn firstDataScn;
         typeScn firstSchemaScn;
-        typeScn checkpointScn;
+        std::set<RedoLog*> redoLogs;
+
+        // Transaction schema consistency mutex
+        std::mutex mtxTransaction;
+
+        // Checkpoint information
+        std::mutex mtxCheckpoint;
+        typeResetlogs resetlogs;
+        std::set<OracleIncarnation*> oracleIncarnations;
+        OracleIncarnation* oracleIncarnationCurrent;
+        typeActivation activation;
+        typeSeq sequence;
+        typeSeq lastSequence;
+        uint64_t offset;
         typeScn firstScn;
         typeScn nextScn;
+        typeScn clientScn;
+        typeIdx clientIdx;
+        uint64_t checkpoints;
+        typeScn checkpointScn;
+        typeScn lastCheckpointScn;
         typeTime checkpointTime;
+        typeTime lastCheckpointTime;
         typeSeq checkpointSequence;
         uint64_t checkpointOffset;
+        uint64_t lastCheckpointOffset;
         uint64_t checkpointBytes;
+        uint64_t lastCheckpointBytes;
         typeSeq minSequence;
         uint64_t minOffset;
         typeXid minXid;
         uint64_t schemaInterval;
-        typeScn lastCheckpointScn;
-        typeSeq lastSequence;
-        uint64_t lastCheckpointOffset;
-        typeTime lastCheckpointTime;
-        uint64_t lastCheckpointBytes;
-        // Schema
-        std::vector<SchemaElement*> schemaElements;
-        std::set<std::string> users;
-        std::set<RedoLog*> redoLogs;
-        std::set<OracleIncarnation*> oracleIncarnations;
-        OracleIncarnation* oracleIncarnationCurrent;
         std::set<typeScn> checkpointScnList;
         std::unordered_map<typeScn, bool> checkpointSchemaMap;
 
+        std::vector<SchemaElement*> newSchemaElements;
+
+        // Schema information
+        std::mutex mtxSchema;
+        std::vector<SchemaElement*> schemaElements;
+        std::set<std::string> users;
+
         Metadata(Ctx* newCtx, Locales* newLocales, const char* newDatabase, typeConId newConId, typeScn newStartScn, typeSeq newStartSequence,
-                 const char* newStartTime, int64_t newStartTimeRel);
+                 const char* newStartTime, uint64_t newStartTimeRel);
         ~Metadata();
 
         void setNlsCharset(const std::string& nlsCharset, const std::string& nlsNcharCharset);
@@ -124,14 +146,20 @@ namespace OpenLogReplicator {
         void setSeqOffset(typeSeq newSequence, uint64_t newOffset);
         void setResetlogs(typeResetlogs newResetlogs);
         void setActivation(typeActivation newActivation);
-        void initializeDisk(const char* path);
+        void setFirstNextScn(typeScn newFirstScn, typeScn newNextScn);
+        void setNextSequence();
         [[nodiscard]] bool stateRead(const std::string& name, uint64_t maxSize, std::string& in);
         [[nodiscard]] bool stateDiskRead(const std::string& name, uint64_t maxSize, std::string& in);
-        [[nodiscard]] bool stateWrite(const std::string& name, std::ostringstream& out);
+        [[nodiscard]] bool stateWrite(const std::string& name, typeScn scn, std::ostringstream& out);
         [[nodiscard]] bool stateDrop(const std::string& name);
         SchemaElement* addElement(const char* owner, const char* table, typeOptions options);
+        void resetElements();
+        void commitElements();
 
-        void waitForReplication();
+        void waitForWriter();
+        void waitForReplicator();
+        void setStatusReady();
+        void setStatusStart();
         void setStatusReplicate();
         void wakeUp();
         void checkpoint(typeScn newCheckpointScn, typeTime newCheckpointTime, typeSeq newCheckpointSequence, uint64_t newCheckpointOffset,
@@ -141,6 +169,8 @@ namespace OpenLogReplicator {
         void readCheckpoint(typeScn scn);
         void deleteOldCheckpoints();
         void loadAdaptiveSchema();
+        void allowCheckpoints();
+        bool isNewData(typeScn scn, typeIdx idx);
     };
 }
 

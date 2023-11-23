@@ -1,5 +1,5 @@
 /* Header for CharacterSet16bit class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -77,7 +77,7 @@ namespace OpenLogReplicator {
                           uint64_t newByte2max);
         ~CharacterSet16bit() override;
 
-        typeUnicode decode(const uint8_t*& str, uint64_t& length) const override;
+        typeUnicode decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const override;
 
         static typeUnicode16 unicode_map_JA16VMS[(JA16VMS_b1_max - JA16VMS_b1_min + 1) *
                                                  (JA16VMS_b2_max - JA16VMS_b2_min + 1)];

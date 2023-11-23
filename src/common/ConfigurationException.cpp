@@ -1,5 +1,5 @@
 /* Exception used in program
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -20,13 +20,15 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #include "ConfigurationException.h"
 
 namespace OpenLogReplicator {
-    ConfigurationException::ConfigurationException(const std::string& newMsg) :
+    ConfigurationException::ConfigurationException(int newCode, const std::string& newMsg) :
             exception(),
+            code(newCode),
             msg(std::move(newMsg)) {
     }
 
-    ConfigurationException::ConfigurationException(const char* newMsg) :
+    ConfigurationException::ConfigurationException(int newCode, const char* newMsg) :
             exception(),
+            code(newCode),
             msg(newMsg) {
     }
 

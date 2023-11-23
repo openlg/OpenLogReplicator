@@ -1,5 +1,5 @@
 /* Column of a table in an Oracle database
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -17,14 +17,13 @@ You should have received a copy of the GNU General Public License
 along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#include "../common/DataException.h"
 #include "../common/SysCol.h"
 #include "OracleColumn.h"
 
 namespace OpenLogReplicator {
     OracleColumn::OracleColumn(typeCol newCol, typeCol newGuardSeg, typeCol newSegCol, const std::string& newName, uint64_t newType, uint64_t newLength,
-                               int64_t newPrecision, int64_t newScale, typeCol newNumPk, uint64_t newCharsetId, bool newNullable, bool newInvisible,
-                               bool newStoredAsLob, bool newConstraint, bool newNested, bool newUnused, bool newAdded, bool newGuard) :
+                               int64_t newPrecision, int64_t newScale, typeCol newNumPk, uint64_t newCharsetId, bool newNullable, bool newHidden,
+                               bool newStoredAsLob, bool newSystemGenerated, bool newNested, bool newUnused, bool newAdded, bool newGuard, bool newXmlType) :
             col(newCol),
             guardSeg(newGuardSeg),
             segCol(newSegCol),
@@ -36,15 +35,14 @@ namespace OpenLogReplicator {
             numPk(newNumPk),
             charsetId(newCharsetId),
             nullable(newNullable),
-            invisible(newInvisible),
+            hidden(newHidden),
             storedAsLob(newStoredAsLob),
-            constraint(newConstraint),
+            systemGenerated(newSystemGenerated),
             nested(newNested),
             unused(newUnused),
             added(newAdded),
-            guard(newGuard) {
-        if (segCol > 1000)
-            throw DataException("invalid segCol value (" + std::to_string(segCol) + "), metadata error");
+            guard(newGuard),
+            xmlType(newXmlType) {
     }
 
     std::ostream& operator<<(std::ostream& os, const OracleColumn& column) {

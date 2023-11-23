@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 11.12
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -38,8 +38,8 @@ namespace OpenLogReplicator {
 
         if (ctx->dumpRedoLog >= 1) {
             if ((redoLogRecord->op & 0x1F) == OP_QMD) {
-                for (uint64_t i = 0; i < redoLogRecord->nrow; ++i)
-                    ctx->dumpStream << "slot[" << i << "]: " << std::dec << ctx->read16(redoLogRecord->data + redoLogRecord->slotsDelta + i * 2) << std::endl;
+                for (uint64_t i = 0; i < redoLogRecord->nRow; ++i)
+                    ctx->dumpStream << "slot[" << i << "]: " << std::dec << ctx->read16(redoLogRecord->data + redoLogRecord->slotsDelta + i * 2) << '\n';
             }
         }
     }

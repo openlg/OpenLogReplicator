@@ -1,5 +1,5 @@
 /* Header for Checkpoint class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -36,14 +36,20 @@ namespace OpenLogReplicator {
     class OracleIncarnation;
     class TransactionBuffer;
 
-    class Checkpoint : public Thread {
+    class Checkpoint final : public Thread {
     protected:
         Metadata* metadata;
         std::mutex mtx;
         std::condition_variable condLoop;
+        char* configFileBuffer;
+        std::string configFileName;
+        time_t configFileChange;
+
+        void trackConfigFile();
+        void updateConfigFile();
 
     public:
-        Checkpoint(Ctx* newCtx, Metadata* newMetadata, std::string newAlias);
+        Checkpoint(Ctx* newCtx, Metadata* newMetadata, const std::string& newAlias, const std::string& newConfigFileName, time_t newConfigFileChange);
         virtual ~Checkpoint();
 
         void wakeUp() override;

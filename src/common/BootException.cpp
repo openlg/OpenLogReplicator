@@ -1,5 +1,5 @@
-/* Definition of schema SYS.TS$
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+/* Exception used in program
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -17,18 +17,27 @@ You should have received a copy of the GNU General Public License
 along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#include "SysTs.h"
+#include "BootException.h"
+
+#include <utility>
 
 namespace OpenLogReplicator {
-    SysTs::SysTs(typeRowId& newRowId, typeTs newTs, const char* newName, uint32_t newBlockSize, bool newTouched) :
-            rowId(newRowId),
-            ts(newTs),
-            name(newName),
-            blockSize(newBlockSize),
-            touched(newTouched) {
+    BootException::BootException(int newCode, const std::string newMsg) :
+            exception(),
+            code(newCode),
+            msg(std::move(newMsg)) {
     }
 
-    bool SysTs::operator!=(const SysTs& other) const {
-        return (other.rowId != rowId) || (other.ts != ts) || (other.name != name) || (other.blockSize != blockSize);
+    BootException::BootException(int newCode, const char* newMsg) :
+            exception(),
+            code(newCode),
+            msg(newMsg) {
+    }
+
+    BootException::~BootException() = default;
+
+    std::ostream& operator<<(std::ostream& os, const BootException& exception) {
+        os << exception.msg;
+        return os;
     }
 }

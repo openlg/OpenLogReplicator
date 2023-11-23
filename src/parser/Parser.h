@@ -1,5 +1,5 @@
 /* Header for Parser class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -32,6 +32,7 @@ namespace OpenLogReplicator {
     class Builder;
     class Reader;
     class Metadata;
+    class Transaction;
     class TransactionBuffer;
 
     struct LwnMember {
@@ -42,15 +43,15 @@ namespace OpenLogReplicator {
         typeBlk block;
     };
 
-    class Parser {
+    class Parser final {
     protected:
         Ctx* ctx;
         Builder* builder;
         Metadata* metadata;
         TransactionBuffer* transactionBuffer;
         RedoLogRecord zero;
+        Transaction* lastTransaction;
 
-        std::unordered_map<typeLobId, uint8_t*> orphanedLobs;
         uint8_t* lwnChunks[MAX_LWN_CHUNKS];
         LwnMember* lwnMembers[MAX_RECORDS_IN_LWN];
         uint64_t lwnAllocated;
@@ -66,14 +67,11 @@ namespace OpenLogReplicator {
         void appendToTransactionCommit(RedoLogRecord* redoLogRecord1);
         void appendToTransactionLob(RedoLogRecord* redoLogRecord1);
         void appendToTransactionIndex(RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
-        void appendToTransactionIndexRollback(RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
         void appendToTransaction(RedoLogRecord* redoLogRecord1);
         void appendToTransactionRollback(RedoLogRecord* redoLogRecord1);
         void appendToTransaction(RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
         void appendToTransactionRollback(RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
-        void addOrphanedLob(RedoLogRecord* redoLogRecord1);
         void dumpRedoVector(uint8_t* data, uint64_t recordLength4) const;
-        uint8_t* allocateLob(RedoLogRecord* redoLogRecord1);
 
     public:
         int64_t group;
@@ -87,8 +85,7 @@ namespace OpenLogReplicator {
         virtual ~Parser();
 
         uint64_t parse();
-
-        friend std::ostream& operator<<(std::ostream& os, const Parser& parser);
+        std::string toString();
     };
 }
 

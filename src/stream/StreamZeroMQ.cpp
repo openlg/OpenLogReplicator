@@ -1,5 +1,5 @@
 /* Base class for streaming using ZeroMQ
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -40,11 +40,11 @@ namespace OpenLogReplicator {
     void StreamZeroMQ::initialize() {
         context = zmq_ctx_new();
         if (context == nullptr)
-            throw RuntimeException("ZeroMQ context creation error");
+            throw RuntimeException(10065, "ZeroMQ context creation failed");
 
         socket = zmq_socket(context, ZMQ_PAIR);
         if (socket == nullptr) {
-            throw RuntimeException("ZeroMQ initializing socket error (errno: " + std::to_string(errno) + ")");
+            throw RuntimeException(10066, "ZeroMQ initializing socket failed, message: " + std::to_string(errno));
         }
     }
 
@@ -54,18 +54,18 @@ namespace OpenLogReplicator {
 
     void StreamZeroMQ::initializeClient() {
         if (zmq_connect(socket, uri.c_str()) != 0)
-            throw RuntimeException("ZeroMQ connect to " + uri + " error (errno: " + std::to_string(errno) + ")");
+            throw NetworkException(10063, "ZeroMQ connect to " + uri + " failed, message: " + std::to_string(errno));
     }
 
     void StreamZeroMQ::initializeServer() {
         if (zmq_bind(socket, uri.c_str()) != 0)
-            throw RuntimeException("ZeroMQ bind to " + uri + " error (errno: " + std::to_string(errno) + ")");
+            throw NetworkException(10064, "ZeroMQ bind to " + uri + " failed, message: " + std::to_string(errno));
     }
 
     void StreamZeroMQ::sendMessage(const void* msg, uint64_t length) {
         while (!ctx->softShutdown) {
             int64_t ret = zmq_send(socket, msg, length, ZMQ_NOBLOCK);
-            if (ret == length)
+            if (ret == static_cast<int64_t>(length))
                 return;
 
             if (ret < 0 && errno == EAGAIN) {
@@ -73,7 +73,7 @@ namespace OpenLogReplicator {
                 continue;
             }
 
-            throw NetworkException("network send error");
+            throw NetworkException(10054, "network send error");
         }
     }
 
@@ -81,7 +81,7 @@ namespace OpenLogReplicator {
         int64_t ret = zmq_recv(socket, msg, length, 0);
 
         if (ret < 0)
-            throw NetworkException("network receive error");
+            throw NetworkException(10053, "network receive error");
 
         return ret;
     }
@@ -92,7 +92,7 @@ namespace OpenLogReplicator {
             if (errno == EWOULDBLOCK || errno == EAGAIN)
                 return 0;
 
-            throw NetworkException("network receive error");
+            throw NetworkException(10053, "network receive error");
         }
         return ret;
     }

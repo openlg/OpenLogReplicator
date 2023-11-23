@@ -1,5 +1,5 @@
 /* Header for Builder class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -30,9 +30,10 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #include "../common/LobData.h"
 #include "../common/LobKey.h"
 #include "../common/RedoLogRecord.h"
-#include "../common/RuntimeException.h"
+#include "../common/RedoLogException.h"
 #include "../common/types.h"
 #include "../common/typeLobId.h"
+#include "../common/typeRowId.h"
 #include "../common/typeTime.h"
 #include "../common/typeXid.h"
 #include "../locales/CharacterSet.h"
@@ -42,10 +43,23 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define BUILDER_H_
 
 #define OUTPUT_BUFFER_DATA_SIZE                 (MEMORY_CHUNK_SIZE - sizeof(struct BuilderQueue))
-#define OUTPUT_BUFFER_ALLOCATED                 0x0001
-#define OUTPUT_BUFFER_CONFIRMED                 0x0002
+#define OUTPUT_BUFFER_MESSAGE_ALLOCATED         0x0001
+#define OUTPUT_BUFFER_MESSAGE_CONFIRMED         0x0002
+#define OUTPUT_BUFFER_MESSAGE_CHECKPOINT        0x0004
 #define VALUE_BUFFER_MIN                        1048576
 #define VALUE_BUFFER_MAX                        4294967296
+#define BUFFER_START_UNDEFINED                  0xFFFFFFFFFFFFFFFF
+
+#define XML_PROLOG_RGUID                        0x04
+#define XML_PROLOG_DOCID                        0x08
+#define XML_PROLOG_PATHID                       0x10
+#define XML_PROLOG_BIGINT                       0x40
+
+#define XML_HEADER_STANDALONE                   0x01
+#define XML_HEADER_XMLDECL                      0x02
+#define XML_HEADER_ENCODING                     0x04
+#define XML_HEADER_VERSION_1_1                  0x08
+#define XML_HEADER_STANDALONE_YES               0x10
 
 namespace OpenLogReplicator {
     class Ctx;
@@ -59,6 +73,7 @@ namespace OpenLogReplicator {
     struct BuilderQueue {
         uint64_t id;
         std::atomic<uint64_t> length;
+        std::atomic<uint64_t> start;
         uint8_t* data;
         std::atomic<BuilderQueue*> next;
     };
@@ -70,6 +85,8 @@ namespace OpenLogReplicator {
         uint64_t length;
         typeScn scn;
         typeSeq sequence;
+        typeScn lwnScn;
+        typeIdx lwnIdx;
         uint8_t* data;
         typeObj obj;
         uint16_t pos;
@@ -78,21 +95,24 @@ namespace OpenLogReplicator {
 
     class Builder {
     protected:
-        static const char map64[65];
-        static const char map16[17];
-        static const char map10[11];
-
         Ctx* ctx;
         Locales* locales;
         Metadata* metadata;
         BuilderMsg* msg;
 
+        uint64_t dbFormat;
+        uint64_t attributesFormat;
+        uint64_t intervalDtsFormat;
+        uint64_t intervalYtmFormat;
         uint64_t messageFormat;
         uint64_t ridFormat;
         uint64_t xidFormat;
         uint64_t timestampFormat;
+        uint64_t timestampTzFormat;
+        uint64_t timestampAll;
         uint64_t charFormat;
         uint64_t scnFormat;
+        uint64_t scnAll;
         uint64_t unknownFormat;
         uint64_t schemaFormat;
         uint64_t columnFormat;
@@ -101,16 +121,16 @@ namespace OpenLogReplicator {
         uint64_t messageLength;
         uint64_t flushBuffer;
         char* valueBuffer;
-        uint64_t valueBufferLength;
         uint64_t valueLength;
+        uint64_t valueBufferLength;
+        char* valueBufferOld;
+        uint64_t valueLengthOld;
         std::unordered_set<OracleTable*> tables;
-        typeTime lastTime;
-        typeScn lastScn;
-        typeSeq lastSequence;
+        typeScn commitScn;
         typeXid lastXid;
         uint64_t valuesSet[MAX_NO_COLUMNS / sizeof(uint64_t)];
         uint64_t valuesMerge[MAX_NO_COLUMNS / sizeof(uint64_t)];
-        uint64_t lengths[MAX_NO_COLUMNS][4];
+        int64_t lengths[MAX_NO_COLUMNS][4];
         uint8_t* values[MAX_NO_COLUMNS][4];
         uint64_t lengthsPart[3][MAX_NO_COLUMNS][4];
         uint8_t* valuesPart[3][MAX_NO_COLUMNS][4];
@@ -123,6 +143,9 @@ namespace OpenLogReplicator {
         bool newTran;
         bool compressedBefore;
         bool compressedAfter;
+        uint8_t prevChars[MAX_CHARACTER_LENGTH * 2];
+        uint64_t prevCharsSize;
+        const std::unordered_map<std::string, std::string>* attributes;
 
         std::mutex mtx;
         std::condition_variable condNoWriterWork;
@@ -130,7 +153,7 @@ namespace OpenLogReplicator {
         double decodeFloat(const uint8_t* data);
         long double decodeDouble(const uint8_t* data);
         void builderRotate(bool copy);
-        void processValue(LobCtx* lobCtx, OracleTable* table, typeCol col, const uint8_t* data, uint64_t length, bool after, bool compressed);
+        void processValue(LobCtx* lobCtx, OracleTable* table, typeCol col, const uint8_t* data, uint64_t length, uint64_t offset, bool after, bool compressed);
 
         void valuesRelease() {
             for (uint64_t i = 0; i < mergesMax; ++i)
@@ -139,7 +162,7 @@ namespace OpenLogReplicator {
 
             uint64_t baseMax = valuesMax >> 6;
             for (uint64_t base = 0; base <= baseMax; ++base) {
-                auto column = (typeCol)(base << 6);
+                auto column = static_cast<typeCol>(base << 6);
                 for (uint64_t mask = 1; mask != 0; mask <<= 1, ++column) {
                     if (valuesSet[base] < mask)
                         break;
@@ -158,25 +181,24 @@ namespace OpenLogReplicator {
             compressedAfter = false;
         };
 
-        void valueSet(uint64_t type, uint16_t column, uint8_t* data, uint16_t length, uint8_t fb) {
-            if ((ctx->trace2 & TRACE2_DML) != 0) {
+        void valueSet(uint64_t type, uint16_t column, uint8_t* data, uint16_t length, uint8_t fb, bool dump) {
+            if ((ctx->trace & TRACE_DML) != 0 || dump) {
                 std::ostringstream ss;
                 ss << "DML: value: " << std::dec << type << "/" << column << "/" << std::dec << length << "/" << std::setfill('0') <<
-                        std::setw(2) << std::hex << (uint64_t)fb << " to: ";
-                for (uint64_t i = 0; i < length && i < 10; ++i) {
-                    ss << "0x" << std::setfill('0') << std::setw(2) << std::hex << (uint64_t)data[i] << ", ";
+                        std::setw(2) << std::hex << static_cast<uint64_t>(fb) << " to: ";
+                for (uint64_t i = 0; i < length && i < 64; ++i) {
+                    ss << "0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<uint64_t>(data[i]) << ", ";
                 }
-                TRACE(TRACE2_DML, ss.str())
+                ctx->info(0, ss.str());
             }
 
-            uint64_t base = column >> 6;
-            uint64_t mask = ((uint64_t)1) << (column & 0x3F);
+            uint64_t base = static_cast<uint64_t>(column) >> 6;
+            uint64_t mask = static_cast<uint64_t>(1) << (column & 0x3F);
             // New value
-            if ((valuesSet[base] & mask) == 0) {
+            if ((valuesSet[base] & mask) == 0)
                 valuesSet[base] |= mask;
-                if (column >= valuesMax)
-                    valuesMax = column + 1;
-            }
+            if (column >= valuesMax)
+                valuesMax = column + 1;
 
             switch (fb & (FB_P | FB_N)) {
             case 0:
@@ -208,43 +230,48 @@ namespace OpenLogReplicator {
         };
 
         void builderShift(uint64_t bytes, bool copy) {
-            lastBuffer->length += bytes;
+            lastBuilderQueue->length += bytes;
 
-            if (lastBuffer->length >= OUTPUT_BUFFER_DATA_SIZE)
+            if (lastBuilderQueue->length >= OUTPUT_BUFFER_DATA_SIZE)
                 builderRotate(copy);
         };
 
         void builderShiftFast(uint64_t bytes) const {
-            lastBuffer->length += bytes;
+            lastBuilderQueue->length += bytes;
         };
 
-        void builderBegin(typeObj obj) {
+        void builderBegin(typeScn scn, typeSeq sequence, typeObj obj, uint16_t flags) {
             messageLength = 0;
+            if ((scnFormat && SCN_ALL_COMMIT_VALUE) != 0)
+                scn = commitScn;
 
-            if (lastBuffer->length + sizeof(struct BuilderMsg) >= OUTPUT_BUFFER_DATA_SIZE)
+            if (lastBuilderQueue->length + sizeof(struct BuilderMsg) >= OUTPUT_BUFFER_DATA_SIZE)
                 builderRotate(true);
 
-            msg = (BuilderMsg*)(lastBuffer->data + lastBuffer->length);
+            msg = reinterpret_cast<BuilderMsg*>(lastBuilderQueue->data + lastBuilderQueue->length);
             builderShift(sizeof(struct BuilderMsg), true);
-            msg->scn = lastScn;
-            msg->sequence = lastSequence;
+            msg->scn = scn;
+            msg->lwnScn = lwnScn;
+            msg->lwnIdx = lwnIdx++;
+            msg->sequence = sequence;
             msg->length = 0;
             msg->id = id++;
             msg->obj = obj;
             msg->pos = 0;
-            msg->flags = 0;
-            msg->data = lastBuffer->data + lastBuffer->length;
+            msg->flags = flags;
+            msg->data = lastBuilderQueue->data + lastBuilderQueue->length;
         };
 
         void builderCommit(bool force) {
-            if (messageLength == 0) {
-                WARNING("output buffer - commit of empty transaction")
-            }
+            if (messageLength == 0)
+                throw RedoLogException(50058, "output buffer - commit of empty transaction");
 
-            msg->queueId = lastBuffer->id;
+            msg->queueId = lastBuilderQueue->id;
             builderShift((8 - (messageLength & 7)) & 7, false);
             unconfirmedLength += messageLength;
             msg->length = messageLength;
+            if (lastBuilderQueue->start == BUFFER_START_UNDEFINED)
+                lastBuilderQueue->start = static_cast<uint64_t>(lastBuilderQueue->length);
 
             if (force || flushBuffer == 0 || unconfirmedLength > flushBuffer) {
                 {
@@ -256,41 +283,43 @@ namespace OpenLogReplicator {
             msg = nullptr;
         };
 
-        void builderAppend(char character) {
-            lastBuffer->data[lastBuffer->length] = character;
+        void append(char character) {
+            lastBuilderQueue->data[lastBuilderQueue->length] = character;
             ++messageLength;
             builderShift(1, true);
         };
 
-        void builderAppend(const char* str, uint64_t length) {
-            if (lastBuffer->length + length < OUTPUT_BUFFER_DATA_SIZE) {
-                memcpy((void*)(lastBuffer->data + lastBuffer->length), (void*)str, length);
-                lastBuffer->length += length;
+        void append(const char* str, uint64_t length) {
+            if (lastBuilderQueue->length + length < OUTPUT_BUFFER_DATA_SIZE) {
+                memcpy(reinterpret_cast<void*>(lastBuilderQueue->data + lastBuilderQueue->length),
+                       reinterpret_cast<const void*>(str), length);
+                lastBuilderQueue->length += length;
                 messageLength += length;
             } else {
                 for (uint64_t i = 0; i < length; ++i)
-                    builderAppend(*str++);
+                    append(*str++);
             }
         };
 
-        void builderAppend(const char* str) {
+        void append(const char* str) {
             char character = *str++;
             while (character != 0) {
-                builderAppend(character);
+                append(character);
                 character = *str++;
             }
         };
 
-        void builderAppend(const std::string& str) {
+        void append(const std::string& str) {
             uint64_t length = str.length();
-            if (lastBuffer->length + length < OUTPUT_BUFFER_DATA_SIZE) {
-                memcpy(lastBuffer->data + lastBuffer->length, str.c_str(), length);
-                lastBuffer->length += length;
+            if (lastBuilderQueue->length + length < OUTPUT_BUFFER_DATA_SIZE) {
+                memcpy(lastBuilderQueue->data + lastBuilderQueue->length,
+                       reinterpret_cast<const void*>(str.c_str()), length);
+                lastBuilderQueue->length += length;
                 messageLength += length;
             } else {
-                const char* charstr = str.c_str();
+                const char* charStr = str.c_str();
                 for (uint64_t i = 0; i < length; ++i)
-                    builderAppend(*charstr++);
+                    append(*charStr++);
             }
         };
 
@@ -301,27 +330,29 @@ namespace OpenLogReplicator {
             if (unknownFormat == UNKNOWN_FORMAT_DUMP) {
                 std::ostringstream ss;
                 for (uint64_t j = 0; j < length; ++j)
-                    ss << " " << std::hex << std::setfill('0') << std::setw(2) << (uint64_t) data[j];
-                WARNING("unknown value (column: " << columnName << "): " << std::dec << length << " - " << ss.str())
+                    ss << " " << std::hex << std::setfill('0') << std::setw(2) << (static_cast<uint64_t>(data[j]));
+                ctx->warning(60002, "unknown value (column: " + columnName + "): " + std::to_string(length) + " - " + ss.str());
             }
+        };
+
+        void valueBufferAppend(const char* text, uint64_t length) {
+            for (uint64_t i = 0; i < length; ++i)
+                valueBufferAppend(text[i]);
         };
 
         void valueBufferAppend(uint8_t value) {
             valueBuffer[valueLength++] = (char)value;
         };
 
-        void valueBufferAppendHex(typeUnicode value, uint64_t length) {
-            uint64_t j = (length - 1) * 4;
-            valueBufferCheck(length);
-            for (uint64_t i = 0; i < length; ++i) {
-                valueBuffer[valueLength++] = map16[(value >> j) & 0xF];
-                j -= 4;
-            }
+        void valueBufferAppendHex(uint8_t value, uint64_t offset) {
+            valueBufferCheck(2, offset);
+            valueBuffer[valueLength++] = Ctx::map16[(value >> 4) & 0x0F];
+            valueBuffer[valueLength++] = Ctx::map16[value & 0x0F];
         };
 
-        void parseNumber(const uint8_t* data, uint64_t length) {
+        void parseNumber(const uint8_t* data, uint64_t length, uint64_t offset) {
             valueBufferPurge();
-            valueBufferCheck(length * 2 + 2);
+            valueBufferCheck(length * 2 + 2, offset);
 
             uint8_t digits = data[0];
             // Just zero
@@ -341,7 +372,7 @@ namespace OpenLogReplicator {
                         zeros = 0xC0 - digits;
                     } else {
                         digits -= 0xC0;
-                        // Part of the total - omitting first zero for first digit
+                        // Part of the total - omitting first zero for a first digit
                         value = data[j] - 1;
                         if (value < 10)
                             valueBufferAppend('0' + value);
@@ -452,244 +483,642 @@ namespace OpenLogReplicator {
                             valueBufferAppend('0' + (value % 10));
                     }
                 } else
-                    throw RuntimeException("got unknown numeric value");
+                    throw RedoLogException(50009, "error parsing numeric value at offset: " + std::to_string(offset));
             }
         };
 
-        std::string dumpLob(const uint8_t* data, uint64_t length) {
+        std::string dumpLob(const uint8_t* data, uint64_t length) const {
             std::ostringstream ss;
             for (uint64_t j = 0; j < length; ++j) {
-                ss << " " << std::setfill('0') << std::setw(2) << std::hex << (uint64_t)data[j];
+                ss << " " << std::setfill('0') << std::setw(2) << std::hex << static_cast<uint64_t>(data[j]);
             }
             return ss.str();
         }
 
-        void parseLob(LobCtx* lobCtx, const uint8_t* data, uint64_t length, uint64_t charsetId, bool isClob) {
+        void addLobToOutput(const uint8_t* data, uint32_t length, uint64_t charsetId, uint64_t offset, bool appendData, bool isClob, bool hasPrev,
+                            bool hasNext, bool isSystem) {
+            if (isClob) {
+                parseString(data, length, charsetId, offset, appendData, hasPrev, hasNext, isSystem);
+            } else {
+                memcpy(reinterpret_cast<void*>(valueBuffer + valueLength),
+                       reinterpret_cast<const void*>(data), length);
+                valueLength += length;
+            };
+        }
+
+        bool parseLob(LobCtx* lobCtx, const uint8_t* data, uint64_t length, uint64_t charsetId, typeObj obj, uint64_t offset, bool isClob, bool isSystem) {
+            bool appendData = false, hasPrev = false, hasNext = true;
             valueLength = 0;
+            if (ctx->trace & TRACE_LOB_DATA)
+                ctx->logTrace(TRACE_LOB_DATA, dumpLob(data, length));
 
             if (length < 20) {
-                WARNING("incorrect LOB data, length: " + std::to_string(length))
-                return;
+                ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 1");
+                return false;
             }
 
             uint32_t flags = data[5];
-            typeLobId lobId;
-            lobId.set(data + 10);
+            typeLobId lobId(data + 10);
+            lobCtx->checkOrphanedLobs(ctx, lobId, lastXid, offset);
 
-            // details in index
+            // In-index
             if ((flags & 0x04) == 0) {
-                auto iLob = lobCtx->lobs.find(lobId);
-                if (iLob == lobCtx->lobs.end()) {
-                    WARNING("missing index for LOB: " + lobId.upper() << " data: " << dumpLob(data, length))
-                    return;
+                auto lobsIt = lobCtx->lobs.find(lobId);
+                if (lobsIt == lobCtx->lobs.end()) {
+                    if (ctx->trace & TRACE_LOB_DATA)
+                        ctx->logTrace(TRACE_LOB_DATA, "LOB missing LOB index xid: " + lastXid.toString() + " LOB: " + lobId.lower() +
+                                      " data: " + dumpLob(data, length));
+                    return true;
                 }
-                LobData* lobData = iLob->second;
-                valueBufferCheck((uint64_t) lobData->pageSize * (uint64_t) lobData->sizePages + lobData->sizeRest);
+                LobData* lobData = lobsIt->second;
+                valueBufferCheck(static_cast<uint64_t>(lobData->pageSize) * static_cast<uint64_t>(lobData->sizePages) + lobData->sizeRest, offset);
 
-                bool append = false;
                 uint32_t pageNo = 0;
-                for (auto iLobPage: lobData->indexMap) {
-                    uint32_t pageNoLob = iLobPage.first;
-                    typeDba page = iLobPage.second;
+                for (auto indexMapIt: lobData->indexMap) {
+                    uint32_t pageNoLob = indexMapIt.first;
+                    typeDba page = indexMapIt.second;
                     if (pageNo != pageNoLob) {
-                        WARNING("LOB: " << lobId.upper() << " incorrect page: " << pageNoLob << " while expected: " << pageNo << " data: " <<
-                                dumpLob(data, length))
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 2");
                         pageNo = pageNoLob;
                     }
 
-                    auto iDataLob = lobData->dataMap.find(page);
-                    if (iDataLob == lobData->dataMap.end()) {
-                        WARNING("missing LOB data for LOB: " + lobId.upper() + " page: " + std::to_string(page))
-                        return;
+                    LobDataElement element(page, 0);
+                    auto dataMapIt = lobData->dataMap.find(element);
+                    if (dataMapIt == lobData->dataMap.end()) {
+                        if (ctx->trace & TRACE_LOB_DATA)
+                            ctx->logTrace(TRACE_LOB_DATA, "missing LOB (in-index) for xid: " + lastXid.toString() + " LOB: " +
+                                          lobId.lower() + " page: " + std::to_string(page) + " obj: " + std::to_string(obj));
+                        if (ctx->trace & TRACE_LOB_DATA)
+                            ctx->logTrace(TRACE_LOB_DATA, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
+                        return false;
                     }
                     uint32_t chunkLength = lobData->pageSize;
-                    if (pageNo == lobData->sizePages)
+
+                    // Last
+                    if (pageNo == lobData->sizePages) {
                         chunkLength = lobData->sizeRest;
-
-                    valueBufferCheck(chunkLength * 4);
-                    uint64_t redoLogRecordLength = *((uint64_t*) (iDataLob->second));
-                    RedoLogRecord* redoLogRecordLob = (RedoLogRecord *) (iDataLob->second + sizeof(uint64_t));
-                    redoLogRecordLob->data = (uint8_t*) (iDataLob->second + sizeof(uint64_t) + sizeof(RedoLogRecord));
-                    if (isClob) {
-                        parseString(redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength, charsetId, append);
-                    } else {
-                        memcpy(valueBuffer + valueLength, redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength);
-                        valueLength += chunkLength;
-                    };
-                    append = true;
-                    ++pageNo;
-                }
-            // details in value
-            } else {
-                uint16_t bodyLength = ctx->read16Big(data + 20);
-                if (length != 20 + bodyLength) {
-                    WARNING("incorrect LOB1, data: " << dumpLob(data, length))
-                    return;
-                }
-                uint16_t flg2 = ctx->read16Big(data + 22);
-                uint8_t flg3 = data[26];
-
-                uint16_t lobLength;
-                uint64_t dataOffset;
-                if ((flg3 & 0x03) == 0) {
-                    lobLength = data[28];
-                    dataOffset = 30;
-                } else if ((flg3 & 0x03) == 1) {
-                    lobLength = ctx->read16Big(data + 28);
-                    dataOffset = 31;
-                } else if ((flg3 & 0x03) == 2) {
-                    lobLength = ctx->read24Big(data + 28);
-                    dataOffset = 32;
-                } else if ((flg3 & 0x03) == 3) {
-                    lobLength = ctx->read32Big(data + 28);
-                    dataOffset = 33;
-                } else {
-                    WARNING("incorrect LOB2, flag: " << std::dec << (uint64_t)flg3 << ", data: " << dumpLob(data, length))
-                    return;
-                }
-
-                // in-row value
-                if ((flg2 & 0x0800) == 0x0800) {
-                    if (bodyLength < 16) {
-                        WARNING("incorrect LOB3, bodyLength: " << std::dec << bodyLength << ", data: " << dumpLob(data, length))
-                        return;
+                        hasNext = false;
                     }
 
+                    valueBufferCheck(chunkLength * 4, offset);
+                    RedoLogRecord* redoLogRecordLob = reinterpret_cast<RedoLogRecord*>(dataMapIt->second + sizeof(uint64_t));
+                    redoLogRecordLob->data = reinterpret_cast<uint8_t*>(dataMapIt->second + sizeof(uint64_t) + sizeof(RedoLogRecord));
+
+                    addLobToOutput(redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength, charsetId, offset, appendData, isClob,
+                                   hasPrev, hasNext, isSystem);
+                    appendData = true;
+                    hasPrev = true;
+                    ++pageNo;
+                }
+
+                if (hasNext)
+                    addLobToOutput(nullptr, 0, charsetId, offset, appendData, isClob, true, false, isSystem);
+            // In-row
+            } else {
+                if (length < 23) {
+                    ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 3");
+                    return false;
+                }
+                uint16_t bodyLength = ctx->read16Big(data + 20);
+                if (length != static_cast<uint64_t>(bodyLength + 20)) {
+                    ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 4");
+                    return false;
+                }
+                uint16_t flg2 = ctx->read16Big(data + 22);
+
+                uint32_t totalLobLength = 0;
+                uint16_t chunkLength;
+                uint64_t dataOffset;
+
+                // In-index
+                if ((flg2 & 0x0400) == 0x0400) {
+                    if (length < 36) {
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 5");
+                        return false;
+                    }
+                    uint32_t pageCnt = ctx->read32Big(data + 24);
+                    uint16_t sizeRest = ctx->read16Big(data + 28);
+                    dataOffset = 36;
+
+                    auto lobsIt = lobCtx->lobs.find(lobId);
+                    if (lobsIt == lobCtx->lobs.end()) {
+                        if (ctx->trace & TRACE_LOB_DATA) {
+                            ctx->logTrace(TRACE_LOB_DATA, "missing LOB (in-index) for xid: " + lastXid.toString() + " obj: " +
+                                          std::to_string(obj));
+                            ctx->logTrace(TRACE_LOB_DATA, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
+                        }
+                        return false;
+                    }
+                    LobData* lobData = lobsIt->second;
+                    totalLobLength = pageCnt * lobData->pageSize + sizeRest;
+                    if (totalLobLength == 0)
+                        return true;
+
+                    uint64_t jMax = pageCnt;
+                    if (sizeRest > 0)
+                        ++jMax;
+
+                    for (uint64_t j = 0; j < jMax; ++j) {
+                        typeDba page = 0;
+                        if (dataOffset < length) {
+                            if (length < dataOffset + 4) {
+                                ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                             ", location: 6");
+                                return false;
+                            }
+                            page = ctx->read32Big(data + dataOffset);
+                        } else {
+                            // Rest of data in LOB index
+                            auto indexMapIt = lobData->indexMap.find(j);
+                            if (indexMapIt == lobData->indexMap.end()) {
+                                ctx->warning(60004, "can't find page " + std::to_string(j) + " for xid: " + lastXid.toString() + ", LOB: " +
+                                             lobId.lower() + ", obj: " + std::to_string(obj));
+                                break;
+                            }
+                            page = indexMapIt->second;
+                        }
+
+                        LobDataElement element(page, 0);
+                        auto dataMapIt = lobData->dataMap.find(element);
+                        if (dataMapIt == lobData->dataMap.end()) {
+                            if (ctx->trace & TRACE_LOB_DATA) {
+                                ctx->logTrace(TRACE_LOB_DATA, "missing LOB index (in-index) for xid: " + lastXid.toString() + " LOB: " +
+                                              lobId.lower() + " page: " + std::to_string(page) + " obj: " + std::to_string(obj));
+                                ctx->logTrace(TRACE_LOB_DATA, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
+                            }
+                            return false;
+                        }
+
+                        valueBufferCheck(lobData->pageSize * 4, offset);
+                        while (dataMapIt != lobData->dataMap.end() && dataMapIt->first.dba == page) {
+                            RedoLogRecord* redoLogRecordLob = reinterpret_cast<RedoLogRecord *>(dataMapIt->second + sizeof(uint64_t));
+                            redoLogRecordLob->data = reinterpret_cast<uint8_t *>(dataMapIt->second + sizeof(uint64_t) + sizeof(RedoLogRecord));
+                            if (j < pageCnt)
+                                chunkLength = redoLogRecordLob->lobDataLength;
+                            else
+                                chunkLength = sizeRest;
+                            if (j == jMax - 1)
+                                hasNext = false;
+
+                            addLobToOutput(redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength, charsetId, offset, appendData, isClob,
+                                           hasPrev, hasNext, isSystem);
+                            appendData = true;
+                            hasPrev = true;
+                            totalLobLength -= chunkLength;
+                            dataMapIt++;
+                        }
+
+                        ++page;
+                        dataOffset += 4;
+                    }
+                // In-value
+                } else if ((flg2 & 0x0100) == 0x0100) {
+                    if (bodyLength < 16) {
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 7");
+                        return false;
+                    }
+
+                    if (length < 34) {
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 8");
+                        return false;
+                    }
                     uint32_t zero1 = ctx->read32Big(data + 24);
-                    uint16_t chunkLength = ctx->read16Big(data + 28);
+                    chunkLength = ctx->read16Big(data + 28);
                     uint32_t zero2 = ctx->read32Big(data + 30);
 
                     if (zero1 != 0 || zero2 != 0 || chunkLength + 16  != bodyLength) {
-                        WARNING("incorrect LOB4, length: " << std::dec << chunkLength << ", " << bodyLength << ", data: " << zero1 << ", " << zero2 <<
-                                ", data: " << dumpLob(data, length))
-                        return;
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) + ", location: 9");
+                        return false;
                     }
 
                     if (chunkLength == 0) {
-                        //null value
+                        // Null value
                     } else {
-                        if (isClob) {
-                            parseString(data + 36, chunkLength, charsetId, false);
-                        } else {
-                            memcpy(valueBuffer + valueLength, data + 36, chunkLength);
-                            valueLength += chunkLength;
-                        };
+                        if (length < static_cast<uint64_t>(chunkLength) + 36) {
+                            ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                         ", location: 10");
+                            return false;
+                        }
+
+                        addLobToOutput(data + 36, chunkLength, charsetId, offset, false, isClob, false, false, isSystem);
                     }
                 } else {
-                    uint16_t sizeRest = ctx->read16Big(data + 24);
-                    bool append = false;
-                    uint8_t lobPages = data[dataOffset++] + 1;
-
-                    auto iLob = lobCtx->lobs.find(lobId);
-                    if (iLob == lobCtx->lobs.end()) {
-                        WARNING("missing index for LOB: " + lobId.upper() << " data: " << dumpLob(data, length))
-                        return;
+                    if (bodyLength < 10) {
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                     ", location: 11");
+                        return false;
                     }
-                    LobData* lobData = iLob->second;
+                    uint8_t flg3 = data[26];
+                    uint8_t flg4 = data[27];
+                    if ((flg3 & 0x03) == 0) {
+                        if (length < 30) {
+                            ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                         ", location: 12");
+                            return false;
+                        }
 
-                    for (uint64_t i = 0; i < lobPages; ++i) {
-                        uint8_t flg4 = data[dataOffset++];
-                        typeDba page = ctx->read32Big(data + dataOffset);
-                        dataOffset += 4;
+                        totalLobLength = data[28];
+                        dataOffset = 29;
+                    } else if ((flg3 & 0x03) == 1) {
+                        if (length < 30) {
+                            ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                         ", location: 13");
+                            return false;
+                        }
 
-                        uint64_t pageCnt = 0;
-                        if ((flg4 & 0xF0) == 0x00) {
-                            pageCnt = data[dataOffset++];
-                        } else if ((flg4 & 0xF0) == 0x20) {
-                            pageCnt = ctx->read16Big(data + dataOffset);
-                            dataOffset += 2;
+                        totalLobLength = ctx->read16Big(data + 28);
+                        dataOffset = 30;
+                    } else if ((flg3 & 0x03) == 2) {
+                        if (length < 32) {
+                            ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                         ", location: 14");
+                            return false;
+                        }
+
+                        totalLobLength = ctx->read24Big(data + 28);
+                        dataOffset = 31;
+                    } else if ((flg3 & 0x03) == 3) {
+                        if (length < 32) {
+                            ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                         ", location: 15");
+                            return false;
+                        }
+
+                        totalLobLength = ctx->read32Big(data + 28);
+                        dataOffset = 32;
+                    } else {
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                     ", location: 16");
+                        return false;
+                    }
+
+                    if ((flg4 & 0x0F) == 0) {
+                        ++dataOffset;
+                    } else if ((flg4 & 0x0F) == 0x01) {
+                        dataOffset += 2;
+                    } else {
+                        ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                     ", location: 17");
+                        return false;
+                    }
+
+                    if (totalLobLength == 0)
+                        return true;
+
+                    // Data
+                    if ((flg2 & 0x0800) == 0x0800) {
+                        chunkLength = totalLobLength;
+                        if (chunkLength == 0) {
+                            // Null value
                         } else {
-                            WARNING("incorrect LOB5, data: " << dumpLob(data, length))
-                            return;
+                            if (dataOffset + chunkLength < length) {
+                                ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                             ", location: 18");
+                                return false;
+                            }
+
+                            addLobToOutput(data + dataOffset, chunkLength, charsetId, offset, false, isClob, false, false,
+                                           isSystem);
+                            totalLobLength -= chunkLength;
                         }
 
-                        for (uint64_t j = 0; j < pageCnt; ++j) {
-                            auto iDataLob = lobData->dataMap.find(page);
-                            if (iDataLob == lobData->dataMap.end()) {
-                                WARNING("missing LOB data for LOB: " + lobId.upper() + " page: " + std::to_string(page))
-                                return;
+                    // 12+ data
+                    } else if ((flg2 & 0x4000) == 0x4000) {
+                        auto lobsIt = lobCtx->lobs.find(lobId);
+                        if (lobsIt == lobCtx->lobs.end()) {
+                            if (ctx->trace & TRACE_LOB_DATA) {
+                                ctx->logTrace(TRACE_LOB_DATA, "missing LOB index (12+ in-value) for xid: " + lastXid.toString() + " LOB: " +
+                                              lobId.lower() + " obj: " + std::to_string(obj));
+                                ctx->logTrace(TRACE_LOB_DATA, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
                             }
-                            uint32_t chunkLength = lobData->pageSize;
+                            return false;
+                        }
+                        LobData* lobData = lobsIt->second;
 
-                            valueBufferCheck(chunkLength * 4);
-                            uint64_t redoLogRecordLength = *((uint64_t*) (iDataLob->second));
-                            RedoLogRecord* redoLogRecordLob = (RedoLogRecord *) (iDataLob->second + sizeof(uint64_t));
-                            redoLogRecordLob->data = (uint8_t*) (iDataLob->second + sizeof(uint64_t) + sizeof(RedoLogRecord));
-                            chunkLength = redoLogRecordLob->lobDataLength;
+                        // Style 1
+                        if ((flg3 & 0xF0) == 0x20) {
+                            uint8_t lobPages = data[dataOffset++] + 1;
 
-                            if (isClob) {
-                                parseString(redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength, charsetId, append);
-                                append = true;
+                            for (uint64_t i = 0; i < lobPages; ++i) {
+                                if (dataOffset + 1 >= length) {
+                                    ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                                 ", location: 19");
+                                    return false;
+                                }
+                                uint8_t flg5 = data[dataOffset++];
+
+                                typeDba page = ctx->read32Big(data + dataOffset);
+                                dataOffset += 4;
+                                uint16_t pageCnt = 0;
+                                if ((flg5 & 0x20) == 0) {
+                                    pageCnt = data[dataOffset++];
+                                } else if ((flg5 & 0x20) == 0x20) {
+                                    pageCnt = ctx->read16Big(data + dataOffset);
+                                    dataOffset += 2;
+                                }
+
+                                for (uint64_t j = 0; j < pageCnt; ++j) {
+                                    LobDataElement element(page, 0);
+                                    auto dataMapIt = lobData->dataMap.find(element);
+                                    if (dataMapIt == lobData->dataMap.end()) {
+                                        if (ctx->trace & TRACE_LOB_DATA) {
+                                            ctx->logTrace(TRACE_LOB_DATA, "missing LOB data (new in-value) for xid: " + lastXid.toString() +
+                                                          " LOB: " + lobId.lower() + " page: " + std::to_string(page) + " obj: " +
+                                                          std::to_string(obj));
+                                            ctx->logTrace(TRACE_LOB_DATA, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
+                                        }
+                                        return false;
+                                    }
+
+                                    while (dataMapIt != lobData->dataMap.end() && dataMapIt->first.dba == page) {
+                                        valueBufferCheck(lobData->pageSize * 4, offset);
+                                        RedoLogRecord* redoLogRecordLob = reinterpret_cast<RedoLogRecord *>(dataMapIt->second + sizeof(uint64_t));
+                                        redoLogRecordLob->data = reinterpret_cast<uint8_t *>(dataMapIt->second + sizeof(uint64_t) + sizeof(RedoLogRecord));
+                                        chunkLength = redoLogRecordLob->lobDataLength;
+                                        if (i == static_cast<uint64_t>(lobPages - 1) && j == static_cast<uint64_t>(pageCnt - 1))
+                                            hasNext = false;
+
+                                        addLobToOutput(redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength, charsetId, offset,
+                                                       appendData, isClob, hasPrev, hasNext, isSystem);
+                                        appendData = true;
+                                        hasPrev = true;
+                                        totalLobLength -= chunkLength;
+                                        dataMapIt++;
+                                    }
+                                    ++page;
+                                }
+                            }
+
+                        // Style 2
+                        } else if ((flg3 & 0xF0) == 0x40) {
+                            if (dataOffset + 4 != length) {
+                                ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                             ", location: 20");
+                                return false;
+                            }
+                            typeDba listPage = ctx->read32Big(data + dataOffset);
+
+                            while (listPage != 0) {
+                                auto listMapIt = lobCtx->listMap.find(listPage);
+                                if (listMapIt == lobCtx->listMap.end()) {
+                                    ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                                 ", location: 21, page: " + std::to_string(listPage) + ", offset: " + std::to_string(dataOffset));
+                                    return false;
+                                }
+
+                                uint8_t* dataLob = listMapIt->second;
+                                listPage = *(reinterpret_cast<typeDba*>(dataLob));
+                                uint32_t aSiz = ctx->read32(dataLob + 4);
+
+                                for (uint64_t i = 0; i < aSiz; ++i) {
+                                    uint16_t pageCnt = ctx->read16(dataLob + i * 8 + 8 + 2);
+                                    typeDba page = ctx->read32(dataLob + i * 8 + 8 + 4);
+
+                                    for (uint64_t j = 0; j < pageCnt; ++j) {
+                                        LobDataElement element(page, 0);
+                                        auto dataMapIt = lobData->dataMap.find(element);
+                                        if (dataMapIt == lobData->dataMap.end()) {
+                                            if (ctx->trace & TRACE_LOB_DATA) {
+                                                ctx->logTrace(TRACE_LOB_DATA, "missing LOB data (new in-value 12+) for xid: " +
+                                                              lastXid.toString() + " LOB: " + lobId.lower() + " page: " + std::to_string(page) +
+                                                              " obj: " + std::to_string(obj));
+                                                ctx->logTrace(TRACE_LOB_DATA, "dump LOB: " + lobId.lower() + " data: " +
+                                                              dumpLob(dataLob, length));
+                                            }
+                                            return false;
+                                        }
+
+                                        valueBufferCheck(lobData->pageSize * 4, offset);
+                                        RedoLogRecord* redoLogRecordLob = reinterpret_cast<RedoLogRecord*>(dataMapIt->second + sizeof(uint64_t));
+                                        redoLogRecordLob->data = reinterpret_cast<uint8_t*>(dataMapIt->second + sizeof(uint64_t) + sizeof(RedoLogRecord));
+                                        chunkLength = redoLogRecordLob->lobDataLength;
+                                        if (listPage == 0 && i == static_cast<uint64_t>(aSiz - 1) && j == static_cast<uint64_t>(pageCnt - 1))
+                                            hasNext = false;
+
+                                        addLobToOutput(redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength, charsetId, offset,
+                                                       appendData, isClob, hasPrev, hasNext, isSystem);
+                                        appendData = true;
+                                        hasPrev = true;
+                                        totalLobLength -= chunkLength;
+                                        ++page;
+                                    }
+                                }
+                            }
+                        } else {
+                            ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                         ", location: 22");
+                            return false;
+                        }
+
+                    // Index
+                    } else {
+                        if (dataOffset + 1 >= length) {
+                            ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                         ", location: 23");
+                            return false;
+                        }
+
+                        uint8_t lobPages = data[dataOffset++] + 1;
+
+                        auto lobsIt = lobCtx->lobs.find(lobId);
+                        if (lobsIt == lobCtx->lobs.end()) {
+                            if (ctx->trace & TRACE_LOB_DATA)
+                                ctx->logTrace(TRACE_LOB_DATA, "missing LOB index (new in-value) for xid: " + lastXid.toString() + " LOB: " +
+                                              lobId.lower() + " obj: " + std::to_string(obj));
+                            if (ctx->trace & TRACE_LOB_DATA)
+                                ctx->logTrace(TRACE_LOB_DATA, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
+                            return false;
+                        }
+                        LobData* lobData = lobsIt->second;
+
+                        for (uint64_t i = 0; i < lobPages; ++i) {
+                            if (dataOffset + 5 >= length) {
+                                ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                             ", location: 24");
+                                return false;
+                            }
+
+                            uint8_t flg5 = data[dataOffset++];
+                            typeDba page = ctx->read32Big(data + dataOffset);
+                            dataOffset += 4;
+
+                            uint64_t pageCnt = 0;
+                            if ((flg5 & 0xF0) == 0x00) {
+                                if (dataOffset >= length) {
+                                    ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                                 ", location: 25");
+                                    return false;
+                                }
+                                pageCnt = data[dataOffset++];
+                            } else if ((flg5 & 0xF0) == 0x20) {
+                                if (dataOffset + 1 >= length) {
+                                    ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                                 ", location: 26");
+                                    return false;
+                                }
+                                pageCnt = ctx->read16Big(data + dataOffset);
+                                dataOffset += 2;
                             } else {
-                                memcpy(valueBuffer + valueLength, redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength);
-                                valueLength += chunkLength;
+                                ctx->warning(60003, "incorrect LOB for xid: " + lastXid.toString() + ", data:" + dumpLob(data, length) +
+                                             ", location: 27");
+                                return false;
                             }
-                            ++page;
-                            lobLength -= chunkLength;
+
+                            for (uint64_t j = 0; j < pageCnt; ++j) {
+                                LobDataElement element(page, 0);
+                                auto dataMapIt = lobData->dataMap.find(element);
+                                if (dataMapIt == lobData->dataMap.end()) {
+                                    ctx->warning(60005, "missing LOB data (new in-value) for xid: " + lastXid.toString() + ", LOB: " +
+                                                 lobId.lower() + ", page: " + std::to_string(page) + ", obj: " + std::to_string(obj));
+                                    ctx->warning(60006, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
+                                    return false;
+                                }
+
+                                valueBufferCheck(lobData->pageSize * 4, offset);
+                                RedoLogRecord* redoLogRecordLob = reinterpret_cast<RedoLogRecord*>(dataMapIt->second + sizeof(uint64_t));
+                                redoLogRecordLob->data = reinterpret_cast<uint8_t*>(dataMapIt->second + sizeof(uint64_t) + sizeof(RedoLogRecord));
+                                chunkLength = redoLogRecordLob->lobDataLength;
+                                if (i == static_cast<uint64_t>(lobPages - 1) && j == static_cast<uint64_t>(pageCnt - 1))
+                                    hasNext = false;
+
+                                addLobToOutput(redoLogRecordLob->data + redoLogRecordLob->lobData, chunkLength, charsetId, offset, appendData,
+                                               isClob, hasPrev, hasNext, isSystem);
+                                appendData = true;
+                                hasPrev = true;
+                                ++page;
+                                totalLobLength -= chunkLength;
+                            }
                         }
                     }
+                }
 
-                    if (lobLength != 0) {
-                        WARNING("incorrect LOB6, data: " << dumpLob(data, length) << ", left: " << std::dec << lobLength)
-                    }
+                if (totalLobLength != 0) {
+                    ctx->warning(60007, "incorrect LOB sum xid: " + lastXid.toString() + " left: " + std::to_string(totalLobLength) +
+                                 " obj: " + std::to_string(obj));
+                    ctx->warning(60006, "dump LOB: " + lobId.lower() + " data: " + dumpLob(data, length));
+                    return false;
                 }
             }
+
+            return true;
         }
 
-        void parseString(const uint8_t* data, uint64_t length, uint64_t charsetId, bool append) {
+        void parseString(const uint8_t* data, uint64_t length, uint64_t charsetId, uint64_t offset, bool appendData, bool hasPrev, bool hasNext,
+                         bool isSystem) {
             CharacterSet* characterSet = locales->characterMap[charsetId];
             if (characterSet == nullptr && (charFormat & CHAR_FORMAT_NOMAPPING) == 0)
-                throw RuntimeException("can't find character set map for id = " + std::to_string(charsetId));
-            if (!append)
+                throw RedoLogException(50010, "can't find character set map for id = " + std::to_string(charsetId) + " at offset: " +
+                                       std::to_string(offset));
+            if (!appendData)
                 valueBufferPurge();
+            if (length == 0 && !(hasPrev && prevCharsSize > 0))
+                return;
 
-            while (length > 0) {
-                typeUnicode unicodeCharacter;
-                uint64_t unicodeCharacterLength;
+            const uint8_t* parseData = data;
+            uint64_t parseLength = length;
+            uint64_t overlap = 0;
 
-                if ((charFormat & CHAR_FORMAT_NOMAPPING) == 0) {
-                    unicodeCharacter = characterSet->decode(data, length);
-                    unicodeCharacterLength = 8;
-                } else {
-                    unicodeCharacter = *data++;
-                    --length;
-                    unicodeCharacterLength = 2;
+            // Something left to parse from previous run
+            if (hasPrev && prevCharsSize > 0) {
+                overlap = 2 * MAX_CHARACTER_LENGTH - prevCharsSize;
+                if (overlap > length)
+                    overlap = length;
+                memcpy(prevChars + prevCharsSize, data, overlap);
+                parseData = prevChars;
+                parseLength = prevCharsSize + overlap;
+            }
+
+            while (parseLength > 0) {
+                // Leave for next time
+                if (hasNext && parseLength < MAX_CHARACTER_LENGTH && overlap == 0) {
+                    memcpy(prevChars, parseData, parseLength);
+                    prevCharsSize = parseLength;
+                    break;
                 }
 
-                if ((charFormat & CHAR_FORMAT_HEX) != 0) {
-                    valueBufferAppendHex(unicodeCharacter, unicodeCharacterLength);
+                // Switch to data buffer
+                if (parseLength <= overlap && length > overlap && overlap > 0) {
+                    uint64_t processed = overlap - parseLength;
+                    parseData = data + processed;
+                    parseLength = length - processed;
+                    overlap = 0;
+                }
+
+                typeUnicode unicodeCharacter;
+
+                if ((charFormat & CHAR_FORMAT_NOMAPPING) == 0) {
+                    unicodeCharacter = characterSet->decode(ctx, lastXid, parseData, parseLength);
+
+                    if ((charFormat & CHAR_FORMAT_HEX) == 0 || isSystem) {
+                        // 0xxxxxxx
+                        if (unicodeCharacter <= 0x7F) {
+                            valueBufferAppend(unicodeCharacter);
+
+                        // 110xxxxx 10xxxxxx
+                        } else if (unicodeCharacter <= 0x7FF) {
+                            valueBufferAppend(0xC0 | static_cast<uint8_t>(unicodeCharacter >> 6));
+                            valueBufferAppend(0x80 | static_cast<uint8_t>(unicodeCharacter & 0x3F));
+
+                        // 1110xxxx 10xxxxxx 10xxxxxx
+                        } else if (unicodeCharacter <= 0xFFFF) {
+                            valueBufferAppend(0xE0 | static_cast<uint8_t>(unicodeCharacter >> 12));
+                            valueBufferAppend(0x80 | static_cast<uint8_t>((unicodeCharacter >> 6) & 0x3F));
+                            valueBufferAppend(0x80 | static_cast<uint8_t>(unicodeCharacter & 0x3F));
+
+                        // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                        } else if (unicodeCharacter <= 0x10FFFF) {
+                            valueBufferAppend(0xF0 | static_cast<uint8_t>(unicodeCharacter >> 18));
+                            valueBufferAppend(0x80 | static_cast<uint8_t>((unicodeCharacter >> 12) & 0x3F));
+                            valueBufferAppend(0x80 | static_cast<uint8_t>((unicodeCharacter >> 6) & 0x3F));
+                            valueBufferAppend(0x80 | static_cast<uint8_t>(unicodeCharacter & 0x3F));
+
+                        } else
+                            throw RedoLogException(50011, "got character code: U+" + std::to_string(unicodeCharacter) + " at offset: " +
+                                                   std::to_string(offset));
+                    } else {
+                        // 0xxxxxxx
+                        if (unicodeCharacter <= 0x7F) {
+                            valueBufferAppendHex(unicodeCharacter, offset);
+
+                        // 110xxxxx 10xxxxxx
+                        } else if (unicodeCharacter <= 0x7FF) {
+                            valueBufferAppendHex(0xC0 | static_cast<uint8_t>(unicodeCharacter >> 6), offset);
+                            valueBufferAppendHex(0x80 | static_cast<uint8_t>(unicodeCharacter & 0x3F), offset);
+
+                        // 1110xxxx 10xxxxxx 10xxxxxx
+                        } else if (unicodeCharacter <= 0xFFFF) {
+                            valueBufferAppendHex(0xE0 | static_cast<uint8_t>(unicodeCharacter >> 12), offset);
+                            valueBufferAppendHex(0x80 | static_cast<uint8_t>((unicodeCharacter >> 6) & 0x3F), offset);
+                            valueBufferAppendHex(0x80 | static_cast<uint8_t>(unicodeCharacter & 0x3F), offset);
+
+                        // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                        } else if (unicodeCharacter <= 0x10FFFF) {
+                            valueBufferAppendHex(0xF0 | static_cast<uint8_t>(unicodeCharacter >> 18), offset);
+                            valueBufferAppendHex(0x80 | static_cast<uint8_t>((unicodeCharacter >> 12) & 0x3F), offset);
+                            valueBufferAppendHex(0x80 | static_cast<uint8_t>((unicodeCharacter >> 6) & 0x3F), offset);
+                            valueBufferAppendHex(0x80 | static_cast<uint8_t>(unicodeCharacter & 0x3F), offset);
+
+                        } else
+                            throw RedoLogException(50011, "got character code: U+" + std::to_string(unicodeCharacter) + " at offset: " +
+                                                   std::to_string(offset));
+                    }
                 } else {
-                    // 0xxxxxxx
-                    if (unicodeCharacter <= 0x7F) {
+                    unicodeCharacter = *parseData++;
+                    --parseLength;
+
+                    if ((charFormat & CHAR_FORMAT_HEX) == 0 || isSystem) {
                         valueBufferAppend(unicodeCharacter);
-
-                    // 110xxxxx 10xxxxxx
-                    } else if (unicodeCharacter <= 0x7FF) {
-                        valueBufferAppend(0xC0 | (uint8_t)(unicodeCharacter >> 6));
-                        valueBufferAppend(0x80 | (uint8_t)(unicodeCharacter & 0x3F));
-
-                    // 1110xxxx 10xxxxxx 10xxxxxx
-                    } else if (unicodeCharacter <= 0xFFFF) {
-                        valueBufferAppend(0xE0 | (uint8_t)(unicodeCharacter >> 12));
-                        valueBufferAppend(0x80 | (uint8_t)((unicodeCharacter >> 6) & 0x3F));
-                        valueBufferAppend(0x80 | (uint8_t)(unicodeCharacter & 0x3F));
-
-                    // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-                    } else if (unicodeCharacter <= 0x10FFFF) {
-                        valueBufferAppend(0xF0 | (uint8_t)(unicodeCharacter >> 18));
-                        valueBufferAppend(0x80 | (uint8_t)((unicodeCharacter >> 12) & 0x3F));
-                        valueBufferAppend(0x80 | (uint8_t)((unicodeCharacter >> 6) & 0x3F));
-                        valueBufferAppend(0x80 | (uint8_t)(unicodeCharacter & 0x3F));
-
-                    } else
-                        throw RuntimeException("got character code: U+" + std::to_string(unicodeCharacter));
+                    } else {
+                        valueBufferAppendHex(unicodeCharacter, offset);
+                    }
                 }
             }
         };
 
-        void valueBufferCheck(uint64_t length) {
+        void valueBufferCheck(uint64_t length, uint64_t offset) {
             if (valueLength + length > VALUE_BUFFER_MAX)
-                throw RuntimeException("trying to allocate length for value: " + std::to_string(valueLength + length));
+                throw RedoLogException(50012, "trying to allocate length for value: " + std::to_string(valueLength + length) +
+                                       " exceeds maximum: " + std::to_string(VALUE_BUFFER_MAX) + " at offset: " + std::to_string(offset));
 
             if (valueLength + length < valueBufferLength)
                 return;
@@ -699,7 +1128,8 @@ namespace OpenLogReplicator {
             } while (valueLength + length >= valueBufferLength);
 
             char* newValueBuffer = new char[valueBufferLength];
-            memcpy(newValueBuffer, valueBuffer, valueLength);
+            memcpy(reinterpret_cast<void*>(newValueBuffer),
+                   reinterpret_cast<const void*>(valueBuffer), valueLength);
             delete[] valueBuffer;
             valueBuffer = newValueBuffer;
         };
@@ -719,36 +1149,48 @@ namespace OpenLogReplicator {
         virtual void columnString(const std::string& columnName) = 0;
         virtual void columnNumber(const std::string& columnName, uint64_t precision, uint64_t scale) = 0;
         virtual void columnRaw(const std::string& columnName, const uint8_t* data, uint64_t length) = 0;
-        virtual void columnTimestamp(const std::string& columnName, struct tm &time_, uint64_t fraction, const char* tz) = 0;
-        virtual void processInsert(LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba, typeSlot slot, typeXid xid) = 0;
-        virtual void processUpdate(LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba, typeSlot slot, typeXid xid) = 0;
-        virtual void processDelete(LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj, typeDba bdba, typeSlot slot, typeXid xid) = 0;
-        virtual void processDdl(OracleTable* table, typeDataObj dataObj, uint16_t type, uint16_t seq, const char* operation, const char* sql,
-                                uint64_t sqlLength) = 0;
-        virtual void processBeginMessage() = 0;
+        virtual void columnRowId(const std::string& columnName, typeRowId rowId) = 0;
+        virtual void columnTimestamp(const std::string& columnName, struct tm &epochTime, uint64_t fraction) = 0;
+        virtual void columnTimestampTz(const std::string& columnName, struct tm &epochTime, uint64_t fraction, const char* tz) = 0;
+        virtual void processInsert(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj,
+                                   typeDba bdba, typeSlot slot, typeXid xid, uint64_t offset) = 0;
+        virtual void processUpdate(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj,
+                                   typeDba bdba, typeSlot slot, typeXid xid, uint64_t offset) = 0;
+        virtual void processDelete(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, OracleTable* table, typeObj obj, typeDataObj dataObj,
+                                   typeDba bdba, typeSlot slot, typeXid xid, uint64_t offset) = 0;
+        virtual void processDdl(typeScn scn, typeSeq sequence, typeTime time_, OracleTable* table, typeObj obj, typeDataObj dataObj, uint16_t type,
+                                uint16_t seq, const char* operation, const char* sql, uint64_t sqlLength) = 0;
+        virtual void processBeginMessage(typeScn scn, typeSeq sequence, typeTime time_) = 0;
+        bool parseXml(const uint8_t* data, uint64_t length, uint64_t offset);
 
     public:
         SystemTransaction* systemTransaction;
         uint64_t buffersAllocated;
-        BuilderQueue* firstBuffer;
-        BuilderQueue* lastBuffer;
+        BuilderQueue* firstBuilderQueue;
+        BuilderQueue* lastBuilderQueue;
+        typeScn lwnScn;
+        typeIdx lwnIdx;
 
-        Builder(Ctx* newCtx, Locales* newLocales, Metadata* newMetadata, uint64_t newMessageFormat, uint64_t newRidFormat, uint64_t newXidFormat,
-                uint64_t newTimestampFormat, uint64_t newCharFormat, uint64_t newScnFormat, uint64_t newUnknownFormat, uint64_t newSchemaFormat,
-                uint64_t newColumnFormat, uint64_t newUnknownType, uint64_t newFlushBuffer);
+        Builder(Ctx* newCtx, Locales* newLocales, Metadata* newMetadata, uint64_t newDbFormat, uint64_t newAttributesFormat, uint64_t newIntervalDtsFormat,
+                uint64_t newIntervalYtmFormat, uint64_t newMessageFormat, uint64_t newRidFormat, uint64_t newXidFormat, uint64_t newTimestampFormat,
+                uint64_t newTimestampTzFormat, uint64_t newTimestampAll,  uint64_t newCharFormat, uint64_t newScnFormat, uint64_t newScnAll,
+                uint64_t newUnknownFormat, uint64_t newSchemaFormat, uint64_t newColumnFormat, uint64_t newUnknownType, uint64_t newFlushBuffer);
         virtual ~Builder();
 
         [[nodiscard]] uint64_t builderSize() const;
         [[nodiscard]] uint64_t getMaxMessageMb() const;
         void setMaxMessageMb(uint64_t maxMessageMb);
-        void processBegin(typeScn scn, typeTime time_, typeSeq sequence, typeXid xid);
-        void processInsertMultiple(LobCtx* lobCtx, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
-        void processDeleteMultiple(LobCtx* lobCtx, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
-        void processDml(LobCtx* lobCtx, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2, uint64_t type);
-        void processDdlHeader(RedoLogRecord* redoLogRecord1);
+        void processBegin(typeXid xid, typeScn scn, typeScn newLwnScn, const std::unordered_map<std::string, std::string>* newAttributes);
+        void processInsertMultiple(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2,
+                                   bool system, bool schema, bool dump);
+        void processDeleteMultiple(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2,
+                                   bool system, bool schema, bool dump);
+        void processDml(typeScn scn, typeSeq sequence, typeTime time_, LobCtx* lobCtx, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2,
+                        uint64_t type, bool system, bool schema, bool dump);
+        void processDdlHeader(typeScn scn, typeSeq sequence, typeTime time_, RedoLogRecord* redoLogRecord1);
         virtual void initialize();
-        virtual void processCommit() = 0;
-        virtual void processCheckpoint(typeScn scn, typeTime time_, typeSeq sequence, uint64_t offset, bool redo) = 0;
+        virtual void processCommit(typeScn scn, typeSeq sequence, typeTime time_) = 0;
+        virtual void processCheckpoint(typeScn scn, typeSeq sequence, typeTime time_, uint64_t offset, bool redo) = 0;
         void releaseBuffers(uint64_t maxId);
         void sleepForWriterWork(uint64_t queueSize, uint64_t nanoseconds);
         void wakeUp();

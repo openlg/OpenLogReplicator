@@ -1,5 +1,5 @@
 /* Header for StreamZeroMQ class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,7 +23,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define STREAM_ZERO_MQ_H_
 
 namespace OpenLogReplicator {
-    class StreamZeroMQ : public Stream {
+    class StreamZeroMQ final : public Stream {
     protected:
         void* socket;
         void* context;

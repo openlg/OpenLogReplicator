@@ -1,5 +1,5 @@
 /* LOB in a table in an Oracle database
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -17,25 +17,41 @@ You should have received a copy of the GNU General Public License
 along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#include "../common/DataException.h"
 #include "OracleLob.h"
 #include "OracleTable.h"
 
 namespace OpenLogReplicator {
-    OracleLob::OracleLob(OracleTable* table, typeObj newObj, typeCol newCol, typeCol newIntCol, typeObj newLObj) :
-            table(table),
+    OracleLob::OracleLob(OracleTable* newTable, typeObj newObj, typeObj newDataObj, typeObj newLObj, typeCol newCol, typeCol newIntCol) :
+            table(newTable),
             obj(newObj),
+            dataObj(newDataObj),
+            lObj(newLObj),
             col(newCol),
-            intCol(newIntCol),
-            lObj(newLObj) {
+            intCol(newIntCol) {
     }
 
     OracleLob::~OracleLob() {
         lobIndexes.clear();
+        lobPartitions.clear();
+        lobPageMap.clear();
     }
 
-    void OracleLob::addIndex(typeObj obj) {
-        lobIndexes.push_back(obj);
+    void OracleLob::addIndex(typeDataObj newDataObj) {
+        lobIndexes.push_back(newDataObj);
+    }
+
+    void OracleLob::addPartition(typeDataObj newDataObj, uint16_t pageSize) {
+        lobPartitions.push_back(newDataObj);
+        lobPageMap.insert_or_assign(newDataObj, pageSize);
+    }
+
+    uint32_t OracleLob::checkLobPageSize(typeDataObj newDataObj) {
+        auto lobPageMapIt = lobPageMap.find(newDataObj);
+        if (lobPageMapIt != lobPageMap.end())
+            return lobPageMapIt->second;
+
+        // Default value?
+        return 8132;
     }
 
     std::ostream& operator<<(std::ostream& os, const OracleLob& lob) {

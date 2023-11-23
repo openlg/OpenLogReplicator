@@ -1,5 +1,23 @@
+# Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
+#
+# This file is part of OpenLogReplicator.
+#
+# OpenLogReplicator is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+#  OpenLogReplicator is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with OpenLogReplicator; see the file LICENSE;  If not see
+# <http://www.gnu.org/licenses/>.
+
 cmake_minimum_required(VERSION 3.16)
-project(OpenLogReplicator VERSION 0.9.51)
+project(OpenLogReplicator VERSION 1.3.1)
 
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_STANDARD 17)
@@ -8,7 +26,7 @@ if (OSX_ARCH)
     set(CMAKE_OSX_ARCHITECTURES ${OSX_ARCH})
 endif()
 
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -Wextra -Wshadow -pedantic -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall -Wextra -Wshadow -pedantic -O3 -g")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Wshadow -pedantic -Wno-gnu-statement-expression -pedantic-errors -O0 -g -w -fmessage-length=0 -fno-omit-frame-pointer -fsanitize=address")
 set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
 configure_file(config.h.in ../config.h)

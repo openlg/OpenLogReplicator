@@ -1,5 +1,5 @@
 /* Header for CharacterSet8bit class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,7 +23,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define CHARACTER_SET_8BIT_H_
 
 namespace OpenLogReplicator {
-    class CharacterSet8bit : public CharacterSet7bit {
+    class CharacterSet8bit final : public CharacterSet7bit {
     protected:
         [[nodiscard]] typeUnicode readMap(uint64_t character) const override;
         bool customAscii;
@@ -33,7 +33,7 @@ namespace OpenLogReplicator {
         CharacterSet8bit(const char* newName, const typeUnicode16* newMap, bool newCustomAscii);
         ~CharacterSet8bit() override;
 
-        typeUnicode decode(const uint8_t*& str, uint64_t& length) const override;
+        typeUnicode decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const override;
 
         static typeUnicode16 unicode_map_AR8ADOS710[128];
         static typeUnicode16 unicode_map_AR8ADOS710T[128];

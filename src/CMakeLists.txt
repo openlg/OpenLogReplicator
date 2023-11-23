@@ -1,4 +1,23 @@
+# Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
+#
+# This file is part of OpenLogReplicator.
+#
+# OpenLogReplicator is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# OpenLogReplicator is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with OpenLogReplicator; see the file LICENSE;  If not see
+# <http://www.gnu.org/licenses/>.
+
 list(APPEND ListCommon
+        common/BootException.cpp
         common/ConfigurationException.cpp
         common/Ctx.cpp
         common/DataException.cpp
@@ -7,29 +26,12 @@ list(APPEND ListCommon
         common/OracleIncarnation.cpp
         common/OracleLob.cpp
         common/OracleTable.cpp
-        common/typeIntX.cpp
-        common/typeLobId.cpp
-        common/typeRowId.cpp
         common/LobCtx.cpp
         common/LobData.cpp
+        common/LobKey.cpp
         common/RedoLogException.cpp
         common/RedoLogRecord.cpp
         common/RuntimeException.cpp
-        common/SysCCol.cpp
-        common/SysCDef.cpp
-        common/SysCol.cpp
-        common/SysDeferredStg.cpp
-        common/SysECol.cpp
-        common/SysLob.cpp
-        common/SysLobCompPart.cpp
-        common/SysLobFrag.cpp
-        common/SysObj.cpp
-        common/SysTab.cpp
-        common/SysTabComPart.cpp
-        common/SysTabPart.cpp
-        common/SysTabSubPart.cpp
-        common/SysTs.cpp
-        common/SysUser.cpp
         common/Thread.cpp
         common/Timer.cpp)
 
@@ -86,6 +88,7 @@ list(APPEND ListParser
         parser/OpCode0B16.cpp
         parser/OpCode1301.cpp
         parser/OpCode1801.cpp
+        parser/OpCode1A02.cpp
         parser/OpCode1A06.cpp
         parser/Parser.cpp
         parser/Transaction.cpp

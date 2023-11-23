@@ -1,5 +1,5 @@
 /* Header for OpCode0506 class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,7 +23,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define OP_CODE_05_06_H_
 
 namespace OpenLogReplicator {
-    class OpCode0506: public OpCode {
+    class OpCode0506 final : public OpCode {
     protected:
         static void ktuxvoff(Ctx* ctx, RedoLogRecord* redoLogRecord, uint64_t& fieldPos, uint16_t& fieldLength);
         static void init(Ctx* ctx, RedoLogRecord* redoLogRecord);

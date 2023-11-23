@@ -1,5 +1,5 @@
 /* Header for StreamNetwork class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -25,7 +25,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define STREAM_NETWORK_H_
 
 namespace OpenLogReplicator {
-    class StreamNetwork : public Stream {
+    class StreamNetwork final : public Stream {
     protected:
         int socketFD;
         int serverFD;

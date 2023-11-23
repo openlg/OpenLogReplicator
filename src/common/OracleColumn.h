@@ -1,5 +1,5 @@
 /* Header for OracleColumn class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,7 +23,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define ORACLE_COLUMN_H_
 
 namespace OpenLogReplicator {
-    class OracleColumn {
+    class OracleColumn final {
     public:
         typeCol col;
         typeCol guardSeg;
@@ -36,17 +36,18 @@ namespace OpenLogReplicator {
         typeCol numPk;
         uint64_t charsetId;
         bool nullable;
-        bool invisible;
+        bool hidden;
         bool storedAsLob;
-        bool constraint;
+        bool systemGenerated;
         bool nested;
         bool unused;
         bool added;
         bool guard;
+        bool xmlType;
 
         OracleColumn(typeCol newCol, typeCol newGuardSeg, typeCol newSegCol, const std::string& newName, uint64_t newType, uint64_t newLength,
-                     int64_t newPrecision,  int64_t newScale, typeCol newNumPk, uint64_t newCharsetId, bool newNullable, bool newInvisible,
-                     bool newStoredAsLob, bool newConstraint, bool newNested, bool newUnused, bool newAdded, bool newGuard);
+                     int64_t newPrecision,  int64_t newScale, typeCol newNumPk, uint64_t newCharsetId, bool newNullable, bool newHidden,
+                     bool newStoredAsLob, bool newSystemGenerated, bool newNested, bool newUnused, bool newAdded, bool newGuard, bool newXmlType);
 
         friend std::ostream& operator<<(std::ostream& os, const OracleColumn& column);
     };

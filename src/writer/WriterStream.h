@@ -1,5 +1,5 @@
 /* Header for WriterStream class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -26,23 +26,22 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 namespace OpenLogReplicator {
     class Stream;
 
-    class WriterStream : public Writer {
+    class WriterStream final : public Writer {
     protected:
         Stream* stream;
         pb::RedoRequest request;
         pb::RedoResponse response;
 
         std::string getName() const override;
-        void readCheckpoint() override;
         void processInfo();
         void processStart();
-        void processRedo();
+        void processContinue();
         void processConfirm();
         void pollQueue() override;
         void sendMessage(BuilderMsg* msg) override;
 
     public:
-        WriterStream(Ctx* newCtx, const std::string newAlias, const std::string& newDatabase, Builder* newBuilder, Metadata* newMetadata, Stream* newStream);
+        WriterStream(Ctx* newCtx, const std::string& newAlias, const std::string& newDatabase, Builder* newBuilder, Metadata* newMetadata, Stream* newStream);
         ~WriterStream() override;
 
         void initialize() override;

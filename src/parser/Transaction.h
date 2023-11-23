@@ -1,5 +1,5 @@
 /* Header for Transaction class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include <map>
 #include <unordered_map>
 #include <vector>
 
@@ -36,7 +37,7 @@ namespace OpenLogReplicator {
     class TransactionBuffer;
     struct TransactionChunk;
 
-    class Transaction {
+    class Transaction final {
     protected:
         TransactionChunk* deallocTc;
         uint64_t opCodes;
@@ -55,46 +56,51 @@ namespace OpenLogReplicator {
         bool begin;
         bool rollback;
         bool system;
+        bool schema;
         bool shutdown;
         bool lastSplit;
         bool dump;
         uint64_t size;
 
-        explicit Transaction(typeXid newXid);
+        // Attributes
+        std::unordered_map<std::string, std::string> attributes;
+
+        explicit Transaction(typeXid newXid, std::map<LobKey, uint8_t*>* newOrphanedLobs);
 
         void add(Metadata* metadata, TransactionBuffer* transactionBuffer, RedoLogRecord* redoLogRecord1);
         void add(Metadata* metadata, TransactionBuffer* transactionBuffer, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
         void rollbackLastOp(Metadata* metadata, TransactionBuffer* transactionBuffer, RedoLogRecord* redoLogRecord1, RedoLogRecord* redoLogRecord2);
         void rollbackLastOp(Metadata* metadata, TransactionBuffer* transactionBuffer, RedoLogRecord* redoLogRecord1);
-        void flush(Metadata* metadata, TransactionBuffer* transactionBuffer, Builder* builder);
+        void flush(Metadata* metadata, TransactionBuffer* transactionBuffer, Builder* builder, typeScn lwnScn);
         void purge(TransactionBuffer* transactionBuffer);
 
         void log(Ctx* ctx, const char* msg, RedoLogRecord* redoLogRecord1) {
-            if (!dump || (ctx->trace2 & TRACE2_DUMP) != 0)
+            if (!dump || (ctx->trace & TRACE_DUMP) != 0)
                 return;
 
-            INFO(msg << " xid: " << xid <<
-                     " OP: 0x" << std::setfill('0') << std::setw(4) << std::hex << redoLogRecord1->opCode <<
-                     " opc: 0x" << std::setfill('0') << std::setw(4) << std::hex << redoLogRecord1->opc <<
-                     " obj: " << std::dec << redoLogRecord1->obj <<
-                     " bdba: 0x" << std::setfill('0') << std::setw(8) << std::hex << redoLogRecord1->bdba <<
-                     " slot: " << std::dec << redoLogRecord1->slot <<
-                     " fb: " << std::hex << std::setfill('0') << std::setw(2) << std::hex << (uint64_t)redoLogRecord1->fb <<
-                     " cc: " << std::dec << (uint64_t)redoLogRecord1->cc <<
-                     " suppbdba: 0x" << std::setfill('0') << std::setw(8) << std::hex << redoLogRecord1->suppLogBdba <<
-                     " suppslot: " << std::dec << redoLogRecord1->suppLogSlot <<
-                     " suppfb: " << std::hex << std::setfill('0') << std::setw(2) << std::hex << (uint64_t)redoLogRecord1->suppLogFb <<
-                     " suppcc: " << std::dec << (uint64_t)redoLogRecord1->suppLogCC <<
-                     " dba: 0x" << std::setfill('0') << std::setw(8) << std::hex << redoLogRecord1->dba <<
-                     " slt: " << std::dec << redoLogRecord1->slt <<
-                     " rci: " << std::dec << (uint64_t)redoLogRecord1->rci <<
-                     " seq: " << std::dec << (uint64_t)redoLogRecord1->seq <<
-                     " flg: " << std::setfill('0') << std::setw(4) << std::hex << redoLogRecord1->flg <<
-                     " split: " << std::dec << lastSplit <<
-                     " offset: " << std::dec << redoLogRecord1->dataOffset)
+            ctx->info(0, std::string(msg) + " xid: " + xid.toString() +
+                      " OP: " + std::to_string(redoLogRecord1->opCode) +
+                      " opc: " + std::to_string(redoLogRecord1->opc) +
+                      " obj: " + std::to_string(redoLogRecord1->obj) +
+                      " dataobj: " + std::to_string(redoLogRecord1->dataObj) +
+                      " bdba: " + std::to_string(redoLogRecord1->bdba) +
+                      " slot: " + std::to_string(redoLogRecord1->slot) +
+                      " fb: " + std::to_string(static_cast<uint64_t>(redoLogRecord1->fb)) +
+                      " cc: " + std::to_string(static_cast<uint64_t>(redoLogRecord1->cc)) +
+                      " suppbdba: " + std::to_string(redoLogRecord1->suppLogBdba) +
+                      " suppslot: " + std::to_string(redoLogRecord1->suppLogSlot) +
+                      " suppfb: " + std::to_string(static_cast<uint64_t>(redoLogRecord1->suppLogFb)) +
+                      " suppcc: " + std::to_string(static_cast<uint64_t>(redoLogRecord1->suppLogCC)) +
+                      " dba: " + std::to_string(redoLogRecord1->dba) +
+                      " slt: " + std::to_string(redoLogRecord1->slt) +
+                      " rci: " + std::to_string(static_cast<uint64_t>(redoLogRecord1->rci)) +
+                      " seq: " + std::to_string(static_cast<uint64_t>(redoLogRecord1->seq)) +
+                      " flg: " + std::to_string(redoLogRecord1->flg) +
+                      " split: " + std::to_string(lastSplit) +
+                      " offset: " + std::to_string(redoLogRecord1->dataOffset));
         }
 
-        friend std::ostream& operator<<(std::ostream& os, const Transaction& tran);
+        std::string toString() const;
     };
 }
 

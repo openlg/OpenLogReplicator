@@ -1,5 +1,5 @@
 /* Header for CharacterSetZHS32GB18030 class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -46,7 +46,7 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define ZHS32GB18030_42_b4_max       0x39
 
 namespace OpenLogReplicator {
-    class CharacterSetZHS32GB18030 : public CharacterSet {
+    class CharacterSetZHS32GB18030 final : public CharacterSet {
     protected:
         static typeUnicode16 unicode_map_ZHS32GB18030_2b[(ZHS32GB18030_2_b1_max - ZHS32GB18030_2_b1_min + 1) *
                                                          (ZHS32GB18030_2_b2_max - ZHS32GB18030_2_b2_min + 1)];
@@ -63,7 +63,7 @@ namespace OpenLogReplicator {
         CharacterSetZHS32GB18030();
         ~CharacterSetZHS32GB18030() override;
 
-        typeUnicode decode(const uint8_t*& str, uint64_t& length) const override;
+        typeUnicode decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const override;
     };
 }
 

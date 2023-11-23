@@ -1,5 +1,5 @@
 /* Header for StateDisk class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -23,17 +23,17 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define STATE_DISK_H_
 
 namespace OpenLogReplicator {
-    class StateDisk : public State {
+    class StateDisk final : public State {
     protected:
         std::string path;
 
     public:
-        explicit StateDisk(const char* newPath);
+        explicit StateDisk(Ctx* newCtx, const char* newPath);
         ~StateDisk() override;
 
         void list(std::set<std::string>& namesList) override;
         [[nodiscard]] bool read(const std::string& name, uint64_t maxSize, std::string& in) override;
-        void write(const std::string& name, const std::ostringstream& out) override;
+        void write(const std::string& name, typeScn scn, const std::ostringstream& out) override;
         void drop(const std::string& name) override;
     };
 }

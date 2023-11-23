@@ -1,5 +1,5 @@
 /* Header for RedoLogException class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -28,12 +28,13 @@ along with OpenLogReplicator; see the file LICENSE;  If not see
 #define REDO_LOG_EXCEPTION_H_
 
 namespace OpenLogReplicator {
-    class RedoLogException: public std::exception {
+    class RedoLogException final : public std::exception {
     public:
+        int code;
         std::string msg;
 
-        explicit RedoLogException(std::string newMsg);
-        explicit RedoLogException(const char* newMsg);
+        explicit RedoLogException(int newCode, std::string newMsg);
+        explicit RedoLogException(int newCode, const char* newMsg);
         ~RedoLogException() override;
 
         friend std::ostream& operator<<(std::ostream& os, const RedoLogException& exception);

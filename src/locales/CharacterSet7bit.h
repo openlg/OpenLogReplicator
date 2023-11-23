@@ -1,5 +1,5 @@
 /* Header for CharacterSet7bit class
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -32,7 +32,7 @@ namespace OpenLogReplicator {
         CharacterSet7bit(const char* newName, const typeUnicode16* newMap);
         ~CharacterSet7bit() override;
 
-        typeUnicode decode(const uint8_t*& str, uint64_t& length) const override;
+        typeUnicode decode(Ctx* ctx, typeXid xid, const uint8_t*& str, uint64_t& length) const override;
 
         // Conversion arrays for 7-bit character sets
         static typeUnicode16 unicode_map_D7DEC[128];

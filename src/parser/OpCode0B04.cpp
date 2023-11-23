@@ -1,5 +1,5 @@
 /* Oracle Redo OpCode: 11.4
-   Copyright (C) 2018-2022 Adam Leszczynski (aleszczynski@bersler.com)
+   Copyright (C) 2018-2023 Adam Leszczynski (aleszczynski@bersler.com)
 
 This file is part of OpenLogReplicator.
 
@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with OpenLogReplicator; see the file LICENSE;  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#include "../common/Ctx.h"
 #include "../common/RedoLogRecord.h"
 #include "OpCode0B04.h"
 
